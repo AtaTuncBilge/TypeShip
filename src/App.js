@@ -1,0 +1,119 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { GameProvider } from './context/GameContext';
+import { GameScreen } from './components/game/GameScreen';
+import { MainMenu } from './components/layout/MainMenu';
+import { SettingsMenu } from './components/settings/SettingsMenu';
+import { AudioManager } from './utils/AudioManager';
+import { LoadingScreen } from './components/game/LoadingScreen';
+import { THEME_COLORS } from './utils/constants';
+
+// Initialize audio manager
+const audioManager = new AudioManager();
+
+export const App = () => {
+  const [gameState, setGameState] = useState('loading'); // loading, menu, settings, playing
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [transition, setTransition] = useState(false);
+
+  // Simulate asset loading with progress updates
+  useEffect(() => {
+    // Initialize game resources
+    const loadResources = async () => {
+      try {
+        // Start audio initialization
+        setLoadingProgress(10);
+        await audioManager.init();
+        setLoadingProgress(50);
+        
+        // Simulate other resource loading with progress updates
+        const steps = [60, 70, 80, 90, 100];
+        for (const progress of steps) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          setLoadingProgress(progress);
+        }
+        
+        setIsLoaded(true);
+        
+        // Wait a moment at 100% before showing menu
+        setTimeout(() => {
+          setTransition(true);
+          setTimeout(() => {
+            setGameState('menu');
+            setTransition(false);
+          }, 400);
+        }, 500);
+      } catch (error) {
+        console.error('Failed to load game resources:', error);
+        // Handle loading error gracefully
+        setLoadingProgress(100);
+        setIsLoaded(true);
+        setTimeout(() => setGameState('menu'), 1000);
+      }
+    };
+    
+    loadResources();
+  }, []);
+
+  // Handle screen transitions with fade effect
+  const transitionToScreen = useCallback((newScreen) => {
+    setTransition(true);
+    
+    // Play transition sound
+    if (audioManager && gameState !== 'loading') {
+      audioManager.playSound('keypress1');
+    }
+    
+    setTimeout(() => {
+      setGameState(newScreen);
+      setTimeout(() => {
+        setTransition(false);
+      }, 300);
+    }, 300);
+  }, [gameState]);
+
+  // Render different screens based on game state
+  const renderScreen = () => {
+    switch (gameState) {
+      case 'loading':
+        return <LoadingScreen progress={loadingProgress} />;
+      case 'menu':
+        return <MainMenu 
+          onPlay={() => transitionToScreen('playing')} 
+          onSettings={() => transitionToScreen('settings')} 
+        />;
+      case 'settings':
+        return <SettingsMenu onBack={() => transitionToScreen('menu')} />;
+      case 'playing':
+        return <GameScreen onExit={() => transitionToScreen('menu')} />;
+      default:
+        return <MainMenu onPlay={() => transitionToScreen('playing')} />;
+    }
+  };
+
+  return (
+    <GameProvider 
+      audioManager={audioManager}
+      initialSettings={{
+        soundEnabled: true,
+        musicEnabled: true,
+        volume: 0.7,
+        difficulty: 'normal',
+        theme: 'dark',
+        wordSets: ['common', 'gaming'],
+        colors: THEME_COLORS
+      }}
+    >
+      <div className="app-container" style={{
+        width: '100%',
+        height: '100vh',
+        overflow: 'hidden',
+        position: 'relative',
+        opacity: transition ? 0 : 1,
+        transition: 'opacity 300ms ease-in-out'
+      }}>
+        {renderScreen()}
+      </div>
+    </GameProvider>
+  );
+};
