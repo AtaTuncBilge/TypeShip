@@ -13,13 +13,15 @@ export const MainMenu = ({ onPlay, onSettings }) => {
     const savedName = localStorage.getItem('typingGamePlayerName');
     if (savedName) {
       setPlayerName(savedName);
+      setIsSaved(true);
     }
   }, []);
 
   const theme = settings?.theme || 'dark';
 
   const handlePlay = () => {
-    if (playerName.trim()) {
+    // Only allow play if name is at least 3 characters and saved
+    if (playerName.trim().length >= 3 && isSaved) {
       if (audioManager) {
         audioManager.playSound('keypress1');
       }
@@ -40,9 +42,18 @@ export const MainMenu = ({ onPlay, onSettings }) => {
   };
 
   const handleNameChange = (e) => {
-    // Remove length limit here, let maxLength prop handle it
     setPlayerName(e.target.value);
     setIsSaved(false);
+  };
+
+  const handleSaveName = () => {
+    if (playerName.trim().length >= 3) {
+      localStorage.setItem('typingGamePlayerName', playerName.trim());
+      setIsSaved(true);
+      if (audioManager) {
+        audioManager.playSound('keypress1');
+      }
+    }
   };
 
   return (
@@ -101,7 +112,7 @@ export const MainMenu = ({ onPlay, onSettings }) => {
           TYPE SHIP
         </h1>
 
-        {playerName && (
+        {playerName && isSaved && (
           <h2 style={{
             fontSize: '1.5rem',
             marginBottom: '2rem',
@@ -111,17 +122,18 @@ export const MainMenu = ({ onPlay, onSettings }) => {
           </h2>
         )}
 
-        {!playerName ? (
+        {!playerName || !isSaved ? (
           <div style={{
             marginBottom: '2rem',
             width: '280px',
           }}>
             <input
               type="text"
-              placeholder="Enter your name to start"
+              placeholder="Enter your name (min 3 characters)"
               value={playerName}
-              onChange={handleNameChange} // Use the new handler
-              maxLength={15} // This will handle length limit properly
+              onChange={handleNameChange}
+              minLength={3}
+              maxLength={15}
               style={{
                 width: '100%',
                 padding: '12px 15px',
@@ -135,15 +147,20 @@ export const MainMenu = ({ onPlay, onSettings }) => {
                 fontFamily: '"Exo 2", sans-serif',
               }}
             />
+            {playerName.trim().length > 0 && playerName.trim().length < 3 && (
+              <div style={{
+                color: '#ff4444',
+                fontSize: '0.8rem',
+                marginBottom: '10px',
+                textAlign: 'left',
+                paddingLeft: '15px'
+              }}>
+                Name must be at least 3 characters long
+              </div>
+            )}
             <button
-              onClick={() => {
-                if (playerName.trim()) {
-                  localStorage.setItem('typingGamePlayerName', playerName.trim());
-                  setPlayerName(playerName.trim());
-                  setIsSaved(true);
-                }
-              }}
-              disabled={!playerName.trim()}
+              onClick={handleSaveName}
+              disabled={playerName.trim().length < 3}
               style={{
                 padding: '15px 25px',
                 fontSize: '1.2rem',
@@ -151,7 +168,8 @@ export const MainMenu = ({ onPlay, onSettings }) => {
                 color: theme === 'dark' ? '#121212' : 'white',
                 border: 'none',
                 borderRadius: '30px',
-                cursor: 'pointer',
+                cursor: playerName.trim().length >= 3 ? 'pointer' : 'not-allowed',
+                opacity: playerName.trim().length >= 3 ? 1 : 0.5,
                 fontWeight: 'bold',
                 boxShadow: theme === 'dark' ? '0 0 10px rgba(75, 213, 238, 0.5)' : '0 0 10px rgba(0, 135, 198, 0.3)',
                 transform: 'none',
@@ -159,7 +177,7 @@ export const MainMenu = ({ onPlay, onSettings }) => {
                 fontFamily: 'Orbitron, sans-serif',
               }}
             >
-              CONTINUE
+              SAVE NAME
             </button>
           </div>
         ) : (

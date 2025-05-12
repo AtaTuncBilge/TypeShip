@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useGameContext } from '../../context/GameContext';
 import VirtualKeyboard from './VirtualKeyboard';
 
@@ -22,6 +22,11 @@ const LANE_SPACING = 80; // Vertical spacing between lanes
 const WORD_VERTICAL_VARIANCE = 20; // Random vertical position variance
 const WORDS_PER_LANE = 1;
 const WORD_SPACING = 400; // Minimum space between words
+
+// Update performance-critical constants
+const FRAME_TIME = 1000 / 60; // Target 60 FPS
+const BATCH_SIZE = 3; // Number of words to process per frame
+const BUFFER_ZONE = 200; // Extra space for word removal
 
 // Spaceship SVG component
 const SpaceshipSVG = ({ theme }) => (
@@ -94,40 +99,48 @@ export const GameScreen = ({ onExit }) => {
   const gameLoopRef = useRef(null);
   const lastFrameTimeRef = useRef(0);
 
-  const gameLoop = (timestamp) => {
+  // Replace existing gameLoop with optimized version
+  const gameLoop = useCallback((timestamp) => {
     if (!isGameActive || gameOver) return;
     
     const deltaTime = timestamp - lastFrameTimeRef.current;
+    if (deltaTime < FRAME_TIME) {
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    
     lastFrameTimeRef.current = timestamp;
 
+    // Batch process words for better performance
     setLanes(prevLanes => {
-      const updatedLanes = prevLanes.map(lane => 
-        lane.filter(word => {
+      let needsUpdate = false;
+      const updatedLanes = prevLanes.map(lane => {
+        const updatedWords = lane.filter(word => {
+          if (word.matched) return false;
           word.x -= word.speed * (deltaTime / 16);
-          if (word.x < -100 && !word.matched) {
-            word.expired = true;
-          }
-          return word.x > -200;
-        })
-      );
+          return word.x > -BUFFER_ZONE;
+        });
 
-      updatedLanes.forEach((lane, index) => {
-        const lastWord = lane[lane.length - 1];
-        if (!lastWord || 
-            (lastWord.x < gameAreaRef.current.clientWidth - WORD_SPACING && 
-             lastWord.x < gameAreaRef.current.clientWidth - 300)) {
-          const newWord = generateWord(gameAreaRef.current, index);
-          if (newWord) {
-            lane.push({ ...newWord, isNew: true });
-          }
-        }
+        if (updatedWords.length !== lane.length) needsUpdate = true;
+        return updatedWords;
       });
 
-      return updatedLanes;
+      // Only spawn new words if necessary
+      if (needsUpdate) {
+        updatedLanes.forEach((lane, index) => {
+          const lastWord = lane[lane.length - 1];
+          if (!lastWord || lastWord.x < gameAreaRef.current.clientWidth - WORD_SPACING) {
+            const newWord = generateWord(gameAreaRef.current, index);
+            if (newWord) lane.push(newWord);
+          }
+        });
+      }
+
+      return needsUpdate ? updatedLanes : prevLanes;
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  };
+  }, [isGameActive, gameOver]);
 
   useEffect(() => {
     if (!isGameActive || timeLeft <= 0) return;
@@ -274,65 +287,69 @@ export const GameScreen = ({ onExit }) => {
     };
   }, [isGameActive, gameOver]);
 
+  // Optimize word rendering with memoization
+  const MemoizedWord = memo(({ word, x, y, matched, expired, isNew, theme }) => (
+    <div
+      className={`word-container ${isNew ? 'word-enter' : ''} ${matched ? 'word-matched' : ''} ${expired ? 'word-expired' : ''}`}
+      style={{
+        position: 'absolute',
+        left: `${x}px`,
+        top: `${y}px`,
+        fontSize: '24px',
+        fontFamily: 'Roboto Mono, monospace',
+        color: theme === 'dark' ? '#e0e0e0' : '#333',
+        pointerEvents: 'none',
+        willChange: 'transform',
+        transform: `translateZ(0)` // Hardware acceleration
+      }}
+    >
+      {word}
+    </div>
+  ));
+
   const renderWord = (wordObj) => {
     const { word, x, y, matched, expired, isNew } = wordObj;
     
     return (
-      <div
+      <MemoizedWord
         key={wordObj.id}
-        className={`
-          word-container
-          ${isNew ? 'word-enter' : ''}
-          ${matched ? 'word-matched' : ''}
-          ${expired ? 'word-expired' : ''}
-        `}
-        style={{
-          position: 'absolute',
-          left: `${x}px`,
-          top: `${y}px`,
-          fontSize: '24px',
-          fontFamily: 'Roboto Mono, monospace',
-          color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-          pointerEvents: 'none'
-        }}
-      >
-        {word}
-      </div>
+        word={word}
+        x={x}
+        y={y}
+        matched={matched}
+        expired={expired}
+        isNew={isNew}
+        theme={settings.theme}
+      />
     );
   };
 
-  const handleInputChange = (e) => {
+  // Optimize input handling
+  const handleInputChange = useCallback((e) => {
     if (!isGameActive || gameOver) return;
     const value = e.target.value.toLowerCase();
+    
+    // Prevent space and backspace
+    if (value.includes(' ') || e.nativeEvent.inputType === 'deleteContentBackward') {
+      return;
+    }
+
     setTyped(value);
     setLastKeyPressed(value.slice(-1));
 
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('keypress');
-    }
-
-    // Find matching word in lanes
-    if (value.endsWith(' ')) {
-      const trimmedValue = value.trim();
+    // Use requestAnimationFrame for performance
+    requestAnimationFrame(() => {
       const allWords = lanes.flat();
       const matchingWord = allWords.find(word => 
-        !word.matched && word.word === trimmedValue
+        !word.matched && word.word === value
       );
 
       if (matchingWord) {
         handleWordComplete(matchingWord);
-        
-        // Update lanes to remove matched word
-        setLanes(prevLanes => prevLanes.map(lane =>
-          lane.map(word =>
-            word.id === matchingWord.id ? { ...word, matched: true } : word
-          )
-        ));
-        
         setTyped('');
       }
-    }
-  };
+    });
+  }, [isGameActive, gameOver, lanes]);
 
   const startGame = () => {
     // Play button sound
@@ -699,6 +716,13 @@ export const GameScreen = ({ onExit }) => {
 
         .floating-ship {
           animation: float 3s ease-in-out infinite;
+        }
+
+        .word-container {
+          transform: translateZ(0);
+          backface-visibility: hidden;
+          perspective: 1000px;
+          will-change: transform;
         }
       `}</style>
     </div>

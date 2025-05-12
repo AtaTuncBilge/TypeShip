@@ -37,6 +37,11 @@ export const GameProvider = ({ children, audioManager, initialSettings }) => {
   const [playerName, setPlayerName] = useState('');
   const [showNameModal, setShowNameModal] = useState(true);
 
+  const [playerNameConfirmed, setPlayerNameConfirmed] = useState(() => {
+    const savedName = localStorage.getItem('typingGamePlayerName');
+    return Boolean(savedName && savedName.length >= 3);
+  });
+
   // Save settings to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('typeShipSettings', JSON.stringify(settings));
@@ -113,6 +118,8 @@ export const GameProvider = ({ children, audioManager, initialSettings }) => {
     playerName,
     showNameModal,
     startGame,
+    playerNameConfirmed,
+    setPlayerNameConfirmed,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

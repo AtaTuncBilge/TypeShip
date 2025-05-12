@@ -6,10 +6,8 @@ const VirtualKeyboard = ({ theme, lastKeyPressed }) => {
   const keyboardLayout = [
     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-    ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'backspace']
+    ['z', 'x', 'c', 'v', 'b', 'n', 'm']
   ];
-
-  const spaceBarRow = ['space'];
 
   useEffect(() => {
     if (lastKeyPressed) {
@@ -20,8 +18,7 @@ const VirtualKeyboard = ({ theme, lastKeyPressed }) => {
   }, [lastKeyPressed]);
 
   const getKeyStyle = (key) => ({
-    width: key === 'space' ? '280px' : 
-          key === 'backspace' ? '80px' : '35px',
+    width: '35px',
     height: '35px',
     display: 'flex',
     alignItems: 'center',
@@ -59,7 +56,7 @@ const VirtualKeyboard = ({ theme, lastKeyPressed }) => {
         ? '0 4px 20px rgba(0,0,0,0.4)'
         : '0 4px 20px rgba(0,0,0,0.15)',
       border: `1px solid ${theme === 'dark' ? 'rgba(75,213,238,0.3)' : 'rgba(0,135,198,0.3)'}`,
-      width: '600px',
+      width: '500px',
       backdropFilter: 'blur(10px)',
     }}>
       {keyboardLayout.map((row, i) => (
@@ -72,22 +69,11 @@ const VirtualKeyboard = ({ theme, lastKeyPressed }) => {
         }}>
           {row.map(key => (
             <div key={key} style={getKeyStyle(key)}>
-              {key === 'space' ? '␣' : 
-               key === 'backspace' ? '⌫' : key}
+              {key}
             </div>
           ))}
         </div>
       ))}
-      
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        marginTop: '8px'
-      }}>
-        {spaceBarRow.map(key => (
-          <div key={key} style={getKeyStyle(key)}>␣</div>
-        ))}
-      </div>
     </div>
   );
 };
