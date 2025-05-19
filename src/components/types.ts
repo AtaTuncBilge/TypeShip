@@ -1,5 +1,3 @@
-import { AudioManager } from '../utils/AudioManager';
-
 export interface GameScreenProps {
   onExit: () => void;
 }
@@ -31,4 +29,11 @@ export interface TypingInputProps {
 
 export interface TypingGameProps {
   onComplete?: () => void;
+}
+
+// Define or export the AudioManager interface to resolve the error:
+export interface AudioManager {
+  playSound(sound: string): void;
+  pauseSound(sound: string): void;
+  // Add other methods if needed
 }

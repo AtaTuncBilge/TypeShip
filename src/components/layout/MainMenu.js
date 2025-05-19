@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGameContext } from '../../context/GameContext';
+import About from '../about/About';
 
 export const MainMenu = ({ onPlay, onSettings }) => {
   const { settings, audioManager } = useGameContext();
@@ -7,6 +8,8 @@ export const MainMenu = ({ onPlay, onSettings }) => {
   const [buttonHover, setButtonHover] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [isSaved, setIsSaved] = useState(true);
+  const [showAbout, setShowAbout] = useState(false); // New state for About component
+  const [showMore, setShowMore] = useState(false); // New state for More options
 
   useEffect(() => {
     // Load saved player name
@@ -23,7 +26,7 @@ export const MainMenu = ({ onPlay, onSettings }) => {
     // Only allow play if name is at least 3 characters and saved
     if (playerName.trim().length >= 3 && isSaved) {
       if (audioManager) {
-        audioManager.playSound('keypress1');
+        audioManager.playSound('hit'); // replaced 'click'
       }
       onPlay();
     }
@@ -31,13 +34,28 @@ export const MainMenu = ({ onPlay, onSettings }) => {
 
   const handleButtonClick = (action) => {
     if (audioManager) {
-      audioManager.playSound('keypress1');
+      audioManager.playSound('hit'); // replaced 'click'
     }
 
-    if (action === 'settings') {
-      onSettings();
-    } else if (action === 'toggleOptions') {
-      setShowOptions(!showOptions);
+    switch (action) {
+      case 'settings':
+        onSettings();
+        break;
+      case 'about':
+        setShowAbout(true); // Show About component
+        break;
+      case 'github':
+        window.open('https://github.com/AtaTuncBilge/TypeShip.v2', '_blank'); // Updated link
+        break;
+      case 'more':
+        setShowMore(!showMore);
+        break;
+      default:
+        if (audioManager) {
+          audioManager.playSound('hit'); // replaced 'click'
+        }
+        setShowOptions(!showOptions);
+        break;
     }
   };
 
@@ -51,7 +69,7 @@ export const MainMenu = ({ onPlay, onSettings }) => {
       localStorage.setItem('typingGamePlayerName', playerName.trim());
       setIsSaved(true);
       if (audioManager) {
-        audioManager.playSound('keypress1');
+        audioManager.playSound('hit'); // replaced 'click'
       }
     }
   };
@@ -237,8 +255,9 @@ export const MainMenu = ({ onPlay, onSettings }) => {
               SETTINGS
             </button>
 
+            {/* Add MORE button */}
             <button
-              onClick={() => handleButtonClick('toggleOptions')}
+              onClick={() => handleButtonClick('more')}
               onMouseEnter={() => setButtonHover('options')}
               onMouseLeave={() => setButtonHover(null)}
               style={{
@@ -256,63 +275,66 @@ export const MainMenu = ({ onPlay, onSettings }) => {
                 fontFamily: 'Orbitron, sans-serif',
               }}
             >
-              {showOptions ? 'HIDE OPTIONS' : 'MORE OPTIONS'}
+              {showMore ? '↑ LESS' : '↓ MORE'}
             </button>
+
+            {/* Display ABOUT and GITHUB if showMore is true */}
+            {showMore && (
+              <div style={{
+                marginTop: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.8rem',
+                width: '100%',
+              }}>
+                <button
+                  onClick={() => handleButtonClick('about')}
+                  onMouseEnter={() => setButtonHover('about')}
+                  onMouseLeave={() => setButtonHover(null)}
+                  style={{
+                    padding: '12px 20px',
+                    fontSize: '1rem',
+                    backgroundColor: 'transparent',
+                    color: theme === 'dark' ? '#b0b0b0' : '#777',
+                    border: `1px solid ${theme === 'dark' ? '#505050' : '#ddd'}`,
+                    borderRadius: '25px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    transform: buttonHover === 'about' ? 'translateY(-2px)' : 'none',
+                    transition: 'all 0.2s ease-in-out',
+                    fontFamily: '"Exo 2", sans-serif',
+                  }}
+                >
+                  ABOUT
+                </button>
+
+                <button
+                  onClick={() => handleButtonClick('github')}
+                  onMouseEnter={() => setButtonHover('github')}
+                  onMouseLeave={() => setButtonHover(null)}
+                  style={{
+                    padding: '12px 20px',
+                    fontSize: '1rem',
+                    backgroundColor: 'transparent',
+                    color: theme === 'dark' ? '#b0b0b0' : '#777',
+                    border: `1px solid ${theme === 'dark' ? '#505050' : '#ddd'}`,
+                    borderRadius: '25px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    transform: buttonHover === 'github' ? 'translateY(-2px)' : 'none',
+                    transition: 'all 0.2s ease-in-out',
+                    fontFamily: '"Exo 2", sans-serif',
+                  }}
+                >
+                  GITHUB
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Additional options */}
-        {showOptions && (
-          <div style={{
-            marginTop: '2rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.8rem',
-            width: '260px',
-          }}>
-            <button
-              onClick={() => window.open('https://github.com/rosebud-ai', '_blank')}
-              onMouseEnter={() => setButtonHover('about')}
-              onMouseLeave={() => setButtonHover(null)}
-              style={{
-                padding: '12px 20px',
-                fontSize: '1rem',
-                backgroundColor: 'transparent',
-                color: theme === 'dark' ? '#b0b0b0' : '#777',
-                border: `1px solid ${theme === 'dark' ? '#505050' : '#ddd'}`,
-                borderRadius: '25px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                transform: buttonHover === 'about' ? 'translateY(-2px)' : 'none',
-                transition: 'all 0.2s ease-in-out',
-                fontFamily: '"Exo 2", sans-serif',
-              }}
-            >
-              ABOUT
-            </button>
-
-            <button
-              onClick={() => window.open('https://github.com/rosebud-ai', '_blank')}
-              onMouseEnter={() => setButtonHover('github')}
-              onMouseLeave={() => setButtonHover(null)}
-              style={{
-                padding: '12px 20px',
-                fontSize: '1rem',
-                backgroundColor: 'transparent',
-                color: theme === 'dark' ? '#b0b0b0' : '#777',
-                border: `1px solid ${theme === 'dark' ? '#505050' : '#ddd'}`,
-                borderRadius: '25px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                transform: buttonHover === 'github' ? 'translateY(-2px)' : 'none',
-                transition: 'all 0.2s ease-in-out',
-                fontFamily: '"Exo 2", sans-serif',
-              }}
-            >
-              GITHUB
-            </button>
-          </div>
-        )}
+        {/* Render About component if showAbout is true */}
+        {showAbout && <About onClose={() => setShowAbout(false)} />}
       </div>
 
       {/* Footer */}

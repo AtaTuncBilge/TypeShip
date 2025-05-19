@@ -2,25 +2,21 @@ import React, { useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
 
 export const SettingsMenu = ({ onBack }) => {
-  const { settings, updateSettings, audioManager } = useGameContext();
+  const { settings, updateSettings } = useGameContext();
   const [buttonHover, setButtonHover] = useState(null);
+  const [playerName, setPlayerName] = useState(() => 
+    localStorage.getItem('typingGamePlayerName') || ''
+  );
   const theme = settings?.theme || 'dark';
-  
-  // Play a sound when buttons are clicked
-  const handleButtonClick = () => {
-    if (audioManager) {
-      audioManager.playSound('keypress1');
-    }
-    onBack();
+
+  const handleNameChange = (e) => {
+    setPlayerName(e.target.value);
   };
 
-  // Handle settings changes
-  const handleSettingChange = (setting, value) => {
-    updateSettings({ [setting]: value });
-    
-    // Play sound feedback for toggles
-    if (audioManager) {
-      audioManager.playSound('keypress1');
+  const savePlayerName = () => {
+    if (playerName.trim().length >= 3) {
+      localStorage.setItem('typingGamePlayerName', playerName.trim());
+      // Optional: Show save confirmation
     }
   };
 
@@ -91,163 +87,55 @@ export const SettingsMenu = ({ onBack }) => {
           marginBottom: '20px',
           boxShadow: theme === 'dark' ? '0 0 20px rgba(0, 0, 0, 0.3)' : '0 0 20px rgba(0, 0, 0, 0.1)',
         }}>
-          {/* Sound Effects Toggle */}
+          {/* Player Name Change */}
           <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
             padding: '15px 0',
             borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#ddd'}`,
           }}>
-            <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif' }}>Sound Effects</span>
-            <label style={{
-              position: 'relative',
-              display: 'inline-block',
-              width: '60px',
-              height: '30px',
-            }}>
+            <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif', display: 'block', marginBottom: '10px' }}>
+              Change Player Name
+            </span>
+            <div style={{ display: 'flex', gap: '10px' }}>
               <input
-                type="checkbox"
-                checked={settings.soundEnabled}
-                onChange={() => handleSettingChange('soundEnabled', !settings.soundEnabled)}
-                style={{ opacity: 0, width: 0, height: 0 }}
+                type="text"
+                value={playerName}
+                onChange={handleNameChange}
+                placeholder="Enter new name (min. 3 chars)"
+                minLength={3}
+                maxLength={15}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  backgroundColor: theme === 'dark' ? '#2a2a2a' : '#fff',
+                  border: `1px solid ${theme === 'dark' ? '#444' : '#ddd'}`,
+                  borderRadius: '4px',
+                  color: theme === 'dark' ? '#e0e0e0' : '#333',
+                }}
               />
-              <span style={{
-                position: 'absolute',
-                cursor: 'pointer',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: settings.soundEnabled ? '#4bd5ee' : '#ccc',
-                transition: '0.4s',
-                borderRadius: '34px',
-                '&:before': {
-                  position: 'absolute',
-                  content: '""',
-                  height: '22px',
-                  width: '22px',
-                  left: '4px',
-                  bottom: '4px',
-                  backgroundColor: 'white',
-                  transition: '0.4s',
-                  borderRadius: '50%',
-                }
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  height: '22px',
-                  width: '22px',
-                  left: settings.soundEnabled ? '34px' : '4px',
-                  bottom: '4px',
-                  backgroundColor: 'white',
-                  transition: '0.4s',
-                  borderRadius: '50%',
-                }}></span>
-              </span>
-            </label>
-          </div>
-          
-          {/* Background Music Toggle */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '15px 0',
-            borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#ddd'}`,
-          }}>
-            <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif' }}>Background Music</span>
-            <label style={{
-              position: 'relative',
-              display: 'inline-block',
-              width: '60px',
-              height: '30px',
-            }}>
-              <input
-                type="checkbox"
-                checked={settings.musicEnabled}
-                onChange={() => handleSettingChange('musicEnabled', !settings.musicEnabled)}
-                style={{ opacity: 0, width: 0, height: 0 }}
-              />
-              <span style={{
-                position: 'absolute',
-                cursor: 'pointer',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: settings.musicEnabled ? '#4bd5ee' : '#ccc',
-                transition: '0.4s',
-                borderRadius: '34px',
-                '&:before': {
-                  position: 'absolute',
-                  content: '""',
-                  height: '22px',
-                  width: '22px',
-                  left: '4px',
-                  bottom: '4px',
-                  backgroundColor: 'white',
-                  transition: '0.4s',
-                  borderRadius: '50%',
-                }
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  height: '22px',
-                  width: '22px',
-                  left: settings.musicEnabled ? '34px' : '4px',
-                  bottom: '4px',
-                  backgroundColor: 'white',
-                  transition: '0.4s',
-                  borderRadius: '50%',
-                }}></span>
-              </span>
-            </label>
-          </div>
-          
-          {/* Volume Control */}
-          <div style={{
-            padding: '15px 0',
-            borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#ddd'}`,
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '10px',
-            }}>
-              <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif' }}>Volume</span>
-              <span style={{ fontSize: '1rem', color: theme === 'dark' ? '#aaa' : '#555' }}>
-                {Math.round(settings.volume * 100)}%
-              </span>
+              <button
+                onClick={savePlayerName}
+                disabled={playerName.trim().length < 3}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: theme === 'dark' ? '#4bd5ee' : '#0087c6',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: playerName.trim().length >= 3 ? 'pointer' : 'not-allowed',
+                  opacity: playerName.trim().length >= 3 ? 1 : 0.5,
+                }}
+              >
+                Save
+              </button>
             </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={settings.volume}
-              onChange={(e) => handleSettingChange('volume', parseFloat(e.target.value))}
-              style={{
-                width: '100%',
-                height: '8px',
-                borderRadius: '5px',
-                appearance: 'none',
-                outline: 'none',
-                opacity: '0.7',
-                transition: 'opacity .2s',
-                background: `linear-gradient(to right, ${theme === 'dark' ? '#4bd5ee' : '#0087c6'} 0%, ${theme === 'dark' ? '#4bd5ee' : '#0087c6'} ${settings.volume * 100}%, ${theme === 'dark' ? '#555' : '#ddd'} ${settings.volume * 100}%, ${theme === 'dark' ? '#555' : '#ddd'} 100%)`,
-              }}
-            />
           </div>
-          
+
           {/* Theme Selection */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '15px 0',
-            borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#ddd'}`,
           }}>
             <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif' }}>Dark Theme</span>
             <label style={{
@@ -259,7 +147,7 @@ export const SettingsMenu = ({ onBack }) => {
               <input
                 type="checkbox"
                 checked={settings.theme === 'dark'}
-                onChange={() => handleSettingChange('theme', settings.theme === 'dark' ? 'light' : 'dark')}
+                onChange={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
                 style={{ opacity: 0, width: 0, height: 0 }}
               />
               <span style={{
@@ -297,64 +185,11 @@ export const SettingsMenu = ({ onBack }) => {
               </span>
             </label>
           </div>
-          
-          {/* Difficulty Level */}
-          <div style={{
-            padding: '15px 0',
-            borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#ddd'}`,
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '10px',
-            }}>
-              <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif' }}>Game Difficulty</span>
-            </div>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '10px',
-            }}>
-              {['easy', 'normal', 'hard'].map((level) => (
-                <button
-                  key={level}
-                  onClick={() => handleSettingChange('difficulty', level)}
-                  onMouseEnter={() => setButtonHover(level)}
-                  onMouseLeave={() => setButtonHover(null)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    backgroundColor: settings.difficulty === level 
-                      ? (theme === 'dark' ? '#4bd5ee' : '#0087c6') 
-                      : 'transparent',
-                    color: settings.difficulty === level 
-                      ? (theme === 'dark' ? '#121212' : 'white')
-                      : (theme === 'dark' ? '#e0e0e0' : '#333'),
-                    border: `2px solid ${settings.difficulty === level 
-                      ? (theme === 'dark' ? '#4bd5ee' : '#0087c6') 
-                      : (theme === 'dark' ? '#444' : '#ddd')}`,
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    fontFamily: 'Orbitron, sans-serif',
-                    fontSize: '0.9rem',
-                    transition: 'all 0.2s ease-in-out',
-                    transform: buttonHover === level && settings.difficulty !== level ? 'translateY(-2px)' : 'none',
-                  }}
-                >
-                  {level}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
         
         {/* Back Button */}
         <button
-          onClick={handleButtonClick}
+          onClick={onBack}
           onMouseEnter={() => setButtonHover('back')}
           onMouseLeave={() => setButtonHover(null)}
           style={{

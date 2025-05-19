@@ -20,6 +20,10 @@ export const Settings = ({ onClose }) => {
     showAds, toggleAds
   } = settings;
   
+  const handleVolumeChange = (value) => {
+    updateSettings({ volume: value });
+  };
+
   return (
     <div style={{
       position: 'absolute',

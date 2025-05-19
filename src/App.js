@@ -13,7 +13,6 @@ const audioManager = new AudioManager();
 export const App = () => {
   const [gameState, setGameState] = useState('loading'); // loading, menu, settings, playing
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
   const [transition, setTransition] = useState(false);
 
   // Simulate asset loading with progress updates
@@ -33,8 +32,6 @@ export const App = () => {
           setLoadingProgress(progress);
         }
         
-        setIsLoaded(true);
-        
         // Wait a moment at 100% before showing menu
         setTimeout(() => {
           setTransition(true);
@@ -47,7 +44,6 @@ export const App = () => {
         console.error('Failed to load game resources:', error);
         // Handle loading error gracefully
         setLoadingProgress(100);
-        setIsLoaded(true);
         setTimeout(() => setGameState('menu'), 1000);
       }
     };
@@ -96,12 +92,9 @@ export const App = () => {
       audioManager={audioManager}
       initialSettings={{
         soundEnabled: true,
-        musicEnabled: true,
         volume: 0.7,
-        difficulty: 'normal',
         theme: 'dark',
-        wordSets: ['common', 'gaming'],
-        colors: THEME_COLORS
+        colors: THEME_COLORS // Ensure this is imported from constants
       }}
     >
       <div className="app-container" style={{

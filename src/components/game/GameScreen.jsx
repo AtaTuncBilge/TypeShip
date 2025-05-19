@@ -1,80 +1,70 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameContext } from '../../context/GameContext';
 import VirtualKeyboard from './VirtualKeyboard';
 
-const WORD_LIST = [
-  'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for', 
-  'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 
-  'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my',
-  'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if',
-  'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like',
-  'time', 'no', 'just', 'him', 'know', 'take', 'people', 'into', 'year', 'your',
-  'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then', 'now', 'look',
-];
-
-const SHIP_SIZE = 40; // Ship size in pixels
-const WORD_SPEED = 1.5; // Reduced speed
-const VIEWPORT_PADDING = 100; // Padding for word spawn
-
-// Constants for lane configuration
+// Update constants
+const KEYBOARD_HEIGHT = 250;
+const WORD_SPEED = 2.5; // Balanced speed
+const WORD_SPACING = 500; // Optimal spacing
 const LANE_COUNT = 3;
-const LANE_SPACING = 80; // Vertical spacing between lanes
-const WORD_VERTICAL_VARIANCE = 20; // Random vertical position variance
-const WORDS_PER_LANE = 1;
-const WORD_SPACING = 400; // Minimum space between words
 
-// Update performance-critical constants
-const FRAME_TIME = 1000 / 60; // Target 60 FPS
-const BATCH_SIZE = 3; // Number of words to process per frame
-const BUFFER_ZONE = 200; // Extra space for word removal
-
-// Spaceship SVG component
-const SpaceshipSVG = ({ theme }) => (
-  <svg width="40" height="40" viewBox="0 0 40 40">
-    <defs>
-      <filter id="glow">
-        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-        <feMerge>
-          <feMergeNode in="coloredBlur"/>
-          <feMergeNode in="SourceGraphic"/>
-        </feMerge>
-      </filter>
-    </defs>
-    <path
-      d="M20 5 L35 30 L20 25 L5 30 Z"
-      fill={theme === 'dark' ? '#4bd5ee' : '#0087c6'}
-      filter="url(#glow)"
-      opacity="0.9"
-    />
-    <circle
-      cx="20"
-      cy="20"
-      r="2"
-      fill={theme === 'dark' ? '#fff' : '#fff'}
-      filter="url(#glow)"
-    />
-  </svg>
+// Enhanced StatBox component for better visualization
+const StatBox = ({ label, value, theme }) => (
+  <div className="stat-box" style={{
+    padding: '8px 15px',
+    backgroundColor: theme === 'dark' ? 'rgba(75, 213, 238, 0.15)' : 'rgba(0, 135, 198, 0.1)',
+    borderRadius: '12px',
+    border: `1px solid ${theme === 'dark' ? 'rgba(75, 213, 238, 0.3)' : 'rgba(0, 135, 198, 0.2)'}`,
+    backdropFilter: 'blur(5px)',
+  }}>
+    <div style={{ fontSize: '12px', opacity: 0.8 }}>{label}</div>
+    <div style={{ 
+      fontSize: '18px', 
+      fontWeight: 'bold',
+      color: theme === 'dark' ? '#4bd5ee' : '#0087c6' 
+    }}>{value}</div>
+  </div>
 );
 
-// Add new laser effect component
-const LaserEffect = ({ startPos, endPos, theme, onComplete }) => (
-  <div 
-    style={{
-      position: 'absolute',
-      left: startPos.x,
-      top: startPos.y,
-      width: `${endPos.x - startPos.x}px`,
-      height: '2px',
-      backgroundColor: theme === 'dark' ? '#4bd5ee' : '#0087c6',
-      boxShadow: `0 0 8px ${theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
-      transform: `rotate(${Math.atan2(endPos.y - startPos.y, endPos.x - startPos.x)}rad)`,
-      transformOrigin: 'left center',
-      animation: 'laserShoot 0.3s forwards',
-      zIndex: 10
-    }}
-    onAnimationEnd={onComplete}
-  />
+// Update SpaceshipEmoji component
+const SpaceshipEmoji = ({ theme }) => (
+  <div style={{
+    fontSize: '45px',
+    filter: `drop-shadow(0 0 8px ${theme === 'dark' ? '#4bd5ee' : '#0087c6'})`,
+    animation: 'floatShip 3s ease-in-out infinite',
+    transform: 'rotate(45deg)', // Changed from 90deg to 45deg for better orientation
+    willChange: 'transform',
+    opacity: 0.9,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '60px',
+    height: '60px'
+  }}>
+    🚀
+  </div>
 );
+
+// Random word generation (non-pronounceable)
+const generateRandomWord = (minLength = 3, maxLength = 6) => {
+  const consonants = 'bcdfghjklmnpqrstvwxz';
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  let word = '';
+  const length = minLength + Math.floor(Math.random() * (maxLength - minLength + 1));
+  
+  for (let i = 0; i < length; i++) {
+    // Mix consonants and all letters for more randomness
+    const charset = i % 2 === 0 ? consonants : letters;
+    word += charset[Math.floor(Math.random() * charset.length)];
+  }
+  return word;
+};
+
+const calculateLaneHeight = (area, keyboardHeight) => {
+  if (!area) return 0;
+  const usableHeight = area.clientHeight - keyboardHeight;
+  return usableHeight / LANE_COUNT;
+};
 
 export const GameScreen = ({ onExit }) => {
   const { settings = {}, audioManager } = useGameContext();
@@ -84,72 +74,86 @@ export const GameScreen = ({ onExit }) => {
   const shipRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
+  // Remove unused state variables
   const [timeLeft, setTimeLeft] = useState(60);
   const [isGameActive, setIsGameActive] = useState(false);
-  const [totalTypedChars, setTotalTypedChars] = useState(0);
   const [correctChars, setCorrectChars] = useState(0);
   const [wpm, setWpm] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [typed, setTyped] = useState('');
-  const [wordElements, setWordElements] = useState([]);
-  const [currentPos, setCurrentPos] = useState({ x: 0, y: 0 });
   const [lastKeyPressed, setLastKeyPressed] = useState('');
-  const [lanes, setLanes] = useState([[], [], []]); // Updated lanes state
-  const [lasers, setLasers] = useState([]);
+  const [lanes, setLanes] = useState([[], [], []]);
+  const [keystrokes, setKeystrokes] = useState(0);
+  const [accuracy, setAccuracy] = useState(100);
+  const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
+  const [lasers, setLasers] = useState([]); // Keep this and remove totalTypedChars
   const gameLoopRef = useRef(null);
   const lastFrameTimeRef = useRef(0);
 
-  // Replace existing gameLoop with optimized version
+  // Move generateWord function definition before it's used
+  const generateWord = useCallback((area, laneIndex) => {
+    if (!area) return null;
+    const laneHeight = calculateLaneHeight(area, KEYBOARD_HEIGHT);
+    const baseY = (laneHeight * laneIndex) + (laneHeight / 2);
+    
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      word: generateRandomWord(),
+      x: area.clientWidth,
+      y: baseY,
+      speed: WORD_SPEED,
+      lane: laneIndex,
+      matched: false
+    };
+  }, []);
+
   const gameLoop = useCallback((timestamp) => {
     if (!isGameActive || gameOver) return;
     
     const deltaTime = timestamp - lastFrameTimeRef.current;
-    if (deltaTime < FRAME_TIME) {
+    if (deltaTime < 16) { // Cap to ~60fps
       gameLoopRef.current = requestAnimationFrame(gameLoop);
       return;
     }
     
     lastFrameTimeRef.current = timestamp;
 
-    // Batch process words for better performance
     setLanes(prevLanes => {
-      let needsUpdate = false;
-      const updatedLanes = prevLanes.map(lane => {
-        const updatedWords = lane.filter(word => {
+      const updatedLanes = prevLanes.map(lane => 
+        lane.filter(word => {
           if (word.matched) return false;
-          word.x -= word.speed * (deltaTime / 16);
-          return word.x > -BUFFER_ZONE;
-        });
+          word.x -= WORD_SPEED;  // Simplified speed calculation
+          return word.x > -200;
+        })
+      );
 
-        if (updatedWords.length !== lane.length) needsUpdate = true;
-        return updatedWords;
+      updatedLanes.forEach((lane, index) => {
+        const lastWord = lane[lane.length - 1];
+        if (!lastWord || lastWord.x < gameAreaRef.current.clientWidth - WORD_SPACING) {
+          const newWord = generateWord(gameAreaRef.current, index);
+          if (newWord) lane.push(newWord);
+        }
       });
 
-      // Only spawn new words if necessary
-      if (needsUpdate) {
-        updatedLanes.forEach((lane, index) => {
-          const lastWord = lane[lane.length - 1];
-          if (!lastWord || lastWord.x < gameAreaRef.current.clientWidth - WORD_SPACING) {
-            const newWord = generateWord(gameAreaRef.current, index);
-            if (newWord) lane.push(newWord);
-          }
-        });
-      }
-
-      return needsUpdate ? updatedLanes : prevLanes;
+      return updatedLanes;
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [isGameActive, gameOver]);
+  }, [isGameActive, gameOver, generateWord]);
 
+  // Move handleGameOver inside useEffect to avoid dependency issue
   useEffect(() => {
     if (!isGameActive || timeLeft <= 0) return;
+
+    const handleGameOver = () => {
+      setGameOver(true);
+      setIsGameActive(false);
+    };
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          setGameOver(true);
-          setIsGameActive(false);
+          handleGameOver();
           clearInterval(timer);
         }
         return prev - 1;
@@ -166,7 +170,7 @@ export const GameScreen = ({ onExit }) => {
     return Math.round((correctChars / 5) / timeElapsed);
   };
 
-  // Explosion effect creation function
+  // Explosion effect creation function        
   const createExplosion = (x, y, color) => {
     if (!gameAreaRef.current) return;
 
@@ -208,11 +212,18 @@ export const GameScreen = ({ onExit }) => {
     }
   };
 
+  // Add handleButtonClick function
+  const handleButtonClick = () => {
+    if (settings.soundEnabled && audioManager) {
+      audioManager.playSound('hit'); // replaced 'click'
+    }
+  };
+
   // Function to handle word completion
   const handleWordComplete = (wordObj) => {
-    // Play success sound for completed word
+    // Play hit sound for word completion
     if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('correct');
+      audioManager.playSound('hit');
     }
 
     // Add laser effect
@@ -237,26 +248,6 @@ export const GameScreen = ({ onExit }) => {
     createExplosion(wordObj.x + 20, wordObj.y + 10, color);
     setCorrectChars(prev => prev + wordObj.word.length);
     setWpm(calculateWPM());
-  };
-
-  const generateWord = (area, laneIndex) => {
-    if (!area) return null;
-
-    const word = WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
-    const laneHeight = area.clientHeight / LANE_COUNT;
-    const baseY = (laneHeight * laneIndex) + (laneHeight / 2);
-    const randomY = baseY + (Math.random() * WORD_VERTICAL_VARIANCE - WORD_VERTICAL_VARIANCE / 2);
-    
-    return {
-      id: Math.random().toString(36).substr(2, 9),
-      word,
-      x: area.clientWidth,
-      y: randomY,
-      speed: WORD_SPEED * (0.8 + Math.random() * 0.4), // Random speed variation
-      lane: laneIndex,
-      matched: false,
-      floatOffset: Math.random() * Math.PI * 2, // Random starting phase for floating animation
-    };
   };
 
   useEffect(() => {
@@ -285,88 +276,110 @@ export const GameScreen = ({ onExit }) => {
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [isGameActive, gameOver]);
+  }, [isGameActive, gameOver, gameLoop, generateWord]);
 
   // Optimize word rendering with memoization
-  const MemoizedWord = memo(({ word, x, y, matched, expired, isNew, theme }) => (
-    <div
-      className={`word-container ${isNew ? 'word-enter' : ''} ${matched ? 'word-matched' : ''} ${expired ? 'word-expired' : ''}`}
-      style={{
-        position: 'absolute',
-        left: `${x}px`,
-        top: `${y}px`,
-        fontSize: '24px',
-        fontFamily: 'Roboto Mono, monospace',
-        color: theme === 'dark' ? '#e0e0e0' : '#333',
-        pointerEvents: 'none',
-        willChange: 'transform',
-        transform: `translateZ(0)` // Hardware acceleration
-      }}
-    >
-      {word}
-    </div>
-  ));
 
-  const renderWord = (wordObj) => {
-    const { word, x, y, matched, expired, isNew } = wordObj;
+  // Fix the renderWord component syntax by adding a semicolon
+  const renderWord = useCallback((wordObj) => {
+    const { word, x, y, matched } = wordObj;
     
     return (
-      <MemoizedWord
+      <div
         key={wordObj.id}
-        word={word}
-        x={x}
-        y={y}
-        matched={matched}
-        expired={expired}
-        isNew={isNew}
-        theme={settings.theme}
-      />
-    );
-  };
+        className={`word-container ${matched ? 'word-matched' : ''}`}
+        style={{
+          position: 'absolute',
+          left: `${x}px`,
+          top: `${y}px`,
+          fontSize: '26px',
+          fontFamily: 'JetBrains Mono, monospace',
+          color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
+          textShadow: `0 0 10px ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.5)' : 'rgba(0, 135, 198, 0.3)'}`,
+          letterSpacing: '1px',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+          transform: 'translateZ(0)',
+          opacity: matched ? 0 : 1,
+          transition: 'all 0.2s ease-out'
+        }}
+      >
+        {word}
+      </div>
+    );  
+  }, [settings.theme]);
 
   // Optimize input handling
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = (e) => {
     if (!isGameActive || gameOver) return;
     const value = e.target.value.toLowerCase();
     
-    // Prevent space and backspace
-    if (value.includes(' ') || e.nativeEvent.inputType === 'deleteContentBackward') {
-      return;
+    // Play typing sound for each keypress
+    if (settings.soundEnabled && audioManager) {
+      audioManager.playSound('type'); // keep for typing
     }
 
     setTyped(value);
     setLastKeyPressed(value.slice(-1));
+    setKeystrokes(prev => prev + 1);
 
-    // Use requestAnimationFrame for performance
-    requestAnimationFrame(() => {
-      const allWords = lanes.flat();
-      const matchingWord = allWords.find(word => 
-        !word.matched && word.word === value
-      );
-
-      if (matchingWord) {
-        handleWordComplete(matchingWord);
-        setTyped('');
-      }
-    });
-  }, [isGameActive, gameOver, lanes]);
-
-  const startGame = () => {
-    // Play button sound
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('button');
+    // Check for word match
+    const allWords = lanes.flat();
+    const exactMatch = allWords.find(w => !w.matched && w.word === value);
+    if (exactMatch) {
+      handleWordComplete(exactMatch);
+      setTyped('');
+      setLanes(prevLanes => prevLanes.map(lane =>
+        lane.map(word =>
+          word.id === exactMatch.id ? { ...word, matched: true } : word
+        )
+      ));
+      setCorrectKeystrokes(prev => prev + value.length);
     }
     
+    setAccuracy(Math.round((correctKeystrokes / keystrokes) * 100) || 0);
+  };
+
+  // Update startGame function
+  const startGame = () => {
+    if (settings.soundEnabled && audioManager) {
+      audioManager.playSound('click');
+    }
+    
+    // Initialize all lanes immediately with words
+    const initialLanes = [[], [], []];
+    for (let i = 0; i < LANE_COUNT; i++) {
+      const spacing = gameAreaRef.current.clientWidth / 3;
+      for (let j = 0; j < 3; j++) {
+        const newWord = generateWord(gameAreaRef.current, i);
+        if (newWord) {
+          newWord.x = gameAreaRef.current.clientWidth + (j * spacing);
+          initialLanes[i].push(newWord);
+        }
+      }
+    }
+    
+    setLanes(initialLanes);
     setIsGameActive(true);
     setTimeLeft(60);
-    setTotalTypedChars(0);
+    setLasers([]);
     setCorrectChars(0);
     setWpm(0);
     setGameOver(false);
     setTyped('');
-    setWordElements([]);
+    
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
     inputRef.current?.focus();
+
+    if (settings.soundEnabled && audioManager) {
+      audioManager.playSound('ambient'); // keep for background
+    }
   };
+
+  useEffect(() => {
+    if (gameOver && audioManager) {
+      audioManager.pauseSound('ambient'); // Stop ambient on game over
+    }
+  }, [gameOver, audioManager]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -391,6 +404,22 @@ export const GameScreen = ({ onExit }) => {
   }, []);
 
   const layoutStyles = {
+    container: {
+      width: '100%',
+      height: '100vh',
+      background: 'radial-gradient(circle at center, rgba(30,40,50,0.8) 0%, rgba(18,18,18,0.95) 100%)',
+      overflow: 'hidden',
+      position: 'relative'
+    },
+    gameArea: {
+      flex: 1,
+      position: 'relative',
+      backgroundColor: 'rgba(20, 25, 40, 0.4)',
+      backdropFilter: 'blur(10px)',
+      borderRadius: '12px',
+      boxShadow: 'inset 0 0 50px rgba(0,0,0,0.3)',
+      overflow: 'hidden'
+    },
     inputContainer: {
       position: 'fixed',
       left: '50px',
@@ -404,23 +433,45 @@ export const GameScreen = ({ onExit }) => {
     },
     wordContainer: {
       marginLeft: '400px',
-      height: '100%',
+      height: `calc(100% - ${KEYBOARD_HEIGHT}px)`,
       position: 'relative',
+      overflow: 'hidden'
     }
   };
 
+  // Update gameLayout to include laser effects
   const gameLayout = (
     <div style={{ position: 'relative', height: '100%' }}>
+      {/* Add laser effects rendering */}
+      {lasers.map(laser => (
+        <div
+          key={laser.id}
+          style={{
+            position: 'absolute',
+            left: laser.start.x,
+            top: laser.start.y,
+            width: `${laser.end.x - laser.start.x}px`,
+            height: '2px',
+            backgroundColor: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
+            boxShadow: `0 0 8px ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
+            transform: `rotate(${Math.atan2(laser.end.y - laser.start.y, laser.end.x - laser.start.x)}rad)`,
+            transformOrigin: 'left center',
+            animation: 'laserShoot 0.3s forwards',
+            zIndex: 10
+          }}
+          onAnimationEnd={() => setLasers(prev => prev.filter(l => l.id !== laser.id))}
+        />
+      ))}
+      
       <div style={layoutStyles.inputContainer}>
         <div
           ref={shipRef}
-          className="floating-ship"
           style={{
-            transform: 'rotate(90deg)',
-            filter: 'drop-shadow(0 0 10px rgba(75, 213, 238, 0.5))',
+            position: 'relative',
+            marginBottom: '20px'
           }}
         >
-          <SpaceshipSVG theme={settings.theme} />
+          <SpaceshipEmoji theme={settings.theme} />
         </div>
 
         <input
@@ -428,16 +479,19 @@ export const GameScreen = ({ onExit }) => {
           type="text"
           value={typed}
           onChange={handleInputChange}
+          className="input-shine"
           style={{
             width: '100%',
             padding: '15px 20px',
             fontSize: '20px',
-            backgroundColor: settings.theme === 'dark' ? 'rgba(60, 70, 90, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+            backgroundColor: settings.theme === 'dark' ? 'rgba(30, 35, 45, 0.9)' : 'rgba(255, 255, 255, 0.9)',
             color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-            border: `2px solid ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
+            border: `2px solid ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.5)' : 'rgba(0, 135, 198, 0.5)'}`,
             borderRadius: '12px',
             outline: 'none',
-            boxShadow: `0 0 20px ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.3)' : 'rgba(0, 135, 198, 0.2)'}`,
+            boxShadow: `0 0 20px ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.2)' : 'rgba(0, 135, 198, 0.15)'}`,
+            backdropFilter: 'blur(10px)',
+            transition: 'all 0.3s ease',
           }}
         />
       </div>
@@ -460,7 +514,10 @@ export const GameScreen = ({ onExit }) => {
   const headerButtons = (
     <div style={{ display: 'flex', gap: '10px' }}>
       <button 
-        onClick={toggleFullscreen}
+        onClick={() => {
+          handleButtonClick();
+          toggleFullscreen();
+        }}
         style={{
           padding: '8px 12px',
           backgroundColor: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
@@ -477,7 +534,10 @@ export const GameScreen = ({ onExit }) => {
       </button>
       
       <button 
-        onClick={onExit}
+        onClick={() => {
+          handleButtonClick();
+          onExit();
+        }}
         style={{
           padding: '8px 12px',
           backgroundColor: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
@@ -495,234 +555,291 @@ export const GameScreen = ({ onExit }) => {
     </div>
   );
 
+  // Update header stats display
+  const statsDisplay = (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      backgroundColor: settings.theme === 'dark' ? 'rgba(60, 70, 90, 0.5)' : 'rgba(240, 245, 255, 0.5)',
+      padding: '5px 10px',
+      borderRadius: '20px',
+    }}>
+      <StatBox label="WPM" value={wpm} theme={settings.theme} />
+      <StatBox label="ACC" value={`${accuracy}%`} theme={settings.theme} />
+      <StatBox label="Keys" value={keystrokes} theme={settings.theme} />
+      <StatBox label="Time" value={`${timeLeft}s`} theme={settings.theme} />
+    </div>
+  );
+
+  // Update game over screen stats
+  const gameOverStats = (
+    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+      <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
+        Test Complete!
+      </h2>
+      <div style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
+        <div>Speed: {wpm} WPM</div>
+        <div>Accuracy: {accuracy}%</div>
+        <div>Total Keystrokes: {keystrokes}</div>
+        <div>Correct Characters: {correctChars}</div>
+      </div>
+    </div>
+  );
+
+  // Clean up the return statement to use single header
   return (
-    <div>
-      <div 
-        ref={gameContainerRef}
-        style={{
-          width: '100%',
-          height: '100vh',
-          backgroundColor: settings.theme === 'dark' ? '#121212' : '#f5f5f5',
-          color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-          position: 'relative',
-          overflow: 'hidden',
-          fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
-        }}
-      >
+    <div ref={gameContainerRef} style={{
+      width: '100%',
+      height: '100vh',
+      background: settings.theme === 'dark' 
+        ? 'linear-gradient(-45deg, #121212, #1a1a1a, #242424, #1a1a1a)'
+        : 'linear-gradient(-45deg, #f0f8ff, #ffffff, #f5f5f5, #ffffff)',
+      backgroundSize: '400% 400%',
+      animation: 'gradientBG 15s ease infinite',
+      color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
+      position: 'relative',
+      overflow: 'hidden',
+      fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
+    }}>
+      <div style={{ 
+        position: 'relative', 
+        zIndex: 1, 
+        padding: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+      }}>
+        {/* Single header */}
         <div style={{
-          position: 'absolute',
-          width: '100%',
-          height: '100%',
-          background: `radial-gradient(circle, ${settings.theme === 'dark' ? 'rgba(32, 41, 64, 0.8)' : 'rgba(230, 240, 255, 0.8)'} 0%, ${settings.theme === 'dark' ? 'rgba(18, 18, 18, 1)' : 'rgba(245, 245, 245, 1)'} 100%)`,
-          zIndex: 0,
-        }} />
-        
-        <div style={{ 
-          position: 'relative', 
-          zIndex: 1, 
-          padding: '20px',
           display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '20px',
+          marginBottom: '10px',
         }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '10px',
+          <h1 style={{
+            fontSize: '2rem',
+            margin: 0,
+            textShadow: settings.theme === 'dark' ? '0 0 10px rgba(75, 213, 238, 0.7)' : '0 0 10px rgba(0, 135, 198, 0.4)',
+            letterSpacing: '2px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <h1 style={{
-                fontSize: '2rem',
-                margin: 0,
-                textShadow: settings.theme === 'dark' ? '0 0 10px rgba(75, 213, 238, 0.7)' : '0 0 10px rgba(0, 135, 198, 0.4)',
-                letterSpacing: '2px',
-              }}>
-                TYPE SHIP
-              </h1>
-              
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                backgroundColor: settings.theme === 'dark' ? 'rgba(60, 70, 90, 0.5)' : 'rgba(240, 245, 255, 0.5)',
-                padding: '5px 10px',
-                borderRadius: '20px',
-              }}>
-                <div style={{
-                  padding: '3px 8px',
-                  backgroundColor: settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.2)' : 'rgba(0, 135, 198, 0.1)',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                }}>
-                  WPM: {wpm}
-                </div>
+            TYPE SHIP
+          </h1>
+          {statsDisplay}
+          {headerButtons}
+        </div>
 
-                <div style={{
-                  padding: '3px 8px',
-                  backgroundColor: settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.2)' : 'rgba(0, 135, 198, 0.1)',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  color: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'
-                }}>
-                  Time: {timeLeft}s
-                </div>
-              </div>
-            </div>
-            
-            {headerButtons}
-          </div>
-          
-          <div
-            ref={gameAreaRef}
-            style={{
-              flex: 1,
-              position: 'relative',
-              backgroundColor: settings.theme === 'dark' ? 'rgba(20, 25, 40, 0.3)' : 'rgba(240, 245, 255, 0.3)',
-              borderRadius: '8px',
-              overflow: 'hidden',
-            }}
-          >
-            {gameLayout}
-          </div>
+        {/* Game Area */}
+        <div
+          ref={gameAreaRef}
+          style={{
+            flex: 1,
+            position: 'relative',
+            backgroundColor: settings.theme === 'dark' ? 'rgba(20, 25, 40, 0.3)' : 'rgba(240, 245, 255, 0.3)',
+            borderRadius: '8px',
+            overflow: 'hidden',
+          }}
+        >
+          {gameLayout}
+        </div>
 
-          {!isGameActive && !gameOver && (
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: '#fff',
-              zIndex: 100,
+        {/* Overlays */}
+        {!isGameActive && !gameOver && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: '#fff',
+            zIndex: 100,
+          }}>
+            <h2 style={{ 
+              fontSize: '2rem', 
+              marginBottom: '1rem',
+              textShadow: '0 0 10px rgba(75, 213, 238, 0.7)',
             }}>
-              <h2 style={{ 
-                fontSize: '2rem', 
-                marginBottom: '1rem',
-                textShadow: '0 0 10px rgba(75, 213, 238, 0.7)',
-              }}>
-                Ready to Test Your Typing Speed?
-              </h2>
-              <p style={{ 
-                marginBottom: '2rem', 
-                maxWidth: '600px',
-                textAlign: 'center',
-                lineHeight: '1.5',
-              }}>
-                You have 60 seconds. Type as many words as you can!
-              </p>
+              Ready to Test Your Typing Speed?
+            </h2>
+            <p style={{ 
+              marginBottom: '2rem', 
+              maxWidth: '600px',
+              textAlign: 'center',
+              lineHeight: '1.5',
+            }}>
+              You have 60 seconds. Type as many words as you can!
+            </p>
+            <button
+              onClick={startGame}
+              style={{
+                padding: '15px 30px',
+                fontSize: '1.2rem',
+                backgroundColor: '#4bd5ee',
+                color: '#121212',
+                border: 'none',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                boxShadow: '0 0 15px rgba(75, 213, 238, 0.7)',
+              }}
+            >
+              START TEST
+            </button>
+          </div>
+        )}
+
+        {gameOver && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            color: '#fff',
+            zIndex: 100,
+          }}>
+            {gameOverStats}
+            <div style={{ display: 'flex', gap: '15px' }}>
               <button
                 onClick={startGame}
                 style={{
-                  padding: '15px 30px',
-                  fontSize: '1.2rem',
+                  padding: '12px 25px',
+                  fontSize: '1.1rem',
                   backgroundColor: '#4bd5ee',
                   color: '#121212',
                   border: 'none',
-                  borderRadius: '30px',
+                  borderRadius: '25px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  boxShadow: '0 0 15px rgba(75, 213, 238, 0.7)',
+                  boxShadow: '0 0 15px rgba(75, 213, 238, 0.5)',
                 }}
               >
-                START TEST
+                TRY AGAIN
+              </button>
+              <button
+                onClick={onExit}
+                style={{
+                  padding: '12px 25px',
+                  fontSize: '1.1rem',
+                  backgroundColor: 'transparent',
+                  color: '#fff',
+                  border: '2px solid #fff',
+                  borderRadius: '25px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                }}
+              >
+                MAIN MENU
               </button>
             </div>
-          )}
-
-          {gameOver && (
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              color: '#fff',
-              zIndex: 100,
-            }}>
-              <h2 style={{ 
-                fontSize: '2.5rem', 
-                marginBottom: '1rem',
-                textShadow: '0 0 10px rgba(255, 100, 100, 0.7)',
-              }}>
-                Test Complete!
-              </h2>
-              <p style={{ 
-                fontSize: '1.5rem',
-                marginBottom: '0.5rem',
-              }}>
-                Your typing speed: {wpm} WPM
-              </p>
-              <div style={{ display: 'flex', gap: '15px' }}>
-                <button
-                  onClick={startGame}
-                  style={{
-                    padding: '12px 25px',
-                    fontSize: '1.1rem',
-                    backgroundColor: '#4bd5ee',
-                    color: '#121212',
-                    border: 'none',
-                    borderRadius: '25px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    boxShadow: '0 0 15px rgba(75, 213, 238, 0.5)',
-                  }}
-                >
-                  TRY AGAIN
-                </button>
-                <button
-                  onClick={onExit}
-                  style={{
-                    padding: '12px 25px',
-                    fontSize: '1.1rem',
-                    backgroundColor: 'transparent',
-                    color: '#fff',
-                    border: '2px solid #fff',
-                    borderRadius: '25px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  MAIN MENU
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <style>{`
-        @keyframes float {
-          0% { transform: rotate(90deg) translateY(0); }
-          50% { transform: rotate(90deg) translateY(-10px); }
-          100% { transform: rotate(90deg) translateY(0); }
+        @keyframes gradientBG {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes wordFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
         }
 
         @keyframes laserShoot {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-
-        .floating-ship {
-          animation: float 3s ease-in-out infinite;
+          0% { transform: scaleX(0); opacity: 1; }
+          100% { transform: scaleX(1); opacity: 0; }
         }
 
         .word-container {
-          transform: translateZ(0);
-          backface-visibility: hidden;
-          perspective: 1000px;
-          will-change: transform;
+          animation: wordFloat 2s ease-in-out infinite;
+        }
+        
+        .word-matched {
+          animation: destroy 0.3s ease-out forwards !important;
+        }
+
+        @keyframes destroy {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.5; }
+          100% { transform: scale(0); opacity: 0; }
+        }
+        
+        .stat-box {
+          transform: translateY(0);
+          transition: transform 0.2s ease;
+        }
+        
+        .stat-box:hover {
+          transform: translateY(-2px);
+        }
+
+        .game-button {
+          transition: all 0.3s ease;
+          transform: translateY(0);
+        }
+
+        .game-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 20px ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.4)' : 'rgba(0, 135, 198, 0.3)'};
+        }
+
+        @keyframes wordEnter {
+          from {
+            transform: translateX(50px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .word-enter {
+          animation: wordEnter 0.3s ease-out forwards;
+        }
+
+        @keyframes shine {
+          0% { background-position: -100px; }
+          100% { background-position: 200px; }
+        }
+
+        .input-shine {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .input-shine::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100px;
+          width: 50px;
+          height: 100%;
+          background: linear-gradient(
+            90deg, 
+            transparent, 
+            ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.2)' : 'rgba(255, 255, 255, 0.4)'},
+            transparent
+          );
+          animation: shine 3s infinite linear;
+        }
+
+        @keyframes floatShip {
+          0%, 100% { transform: rotate(45deg) translateY(0); }
+          50% { transform: rotate(45deg) translateY(-10px); }
         }
       `}</style>
     </div>

@@ -9,7 +9,7 @@ const Countdown = ({ onComplete, audioManager }) => {
     if (count > 0) {
       // Just use playSound directly with keypress sound
       if (settings.soundEnabled && audioManager) {
-        audioManager.playSound('keypress');
+        audioManager.playSound('hit'); // replaced 'type'
       }
       
       const timer = setTimeout(() => setCount(count - 1), 1000);

@@ -45,19 +45,16 @@ const VirtualKeyboard = ({ theme, lastKeyPressed }) => {
   return (
     <div style={{
       position: 'fixed',
-      bottom: '20px',
-      left: '50px',
+      bottom: '10px',
+      left: '50%',
+      transform: 'translateX(-50%)',
       background: theme === 'dark' 
         ? 'linear-gradient(180deg, rgba(30,30,30,0.9) 0%, rgba(20,20,20,0.95) 100%)'
         : 'linear-gradient(180deg, rgba(240,240,240,0.9) 0%, rgba(220,220,220,0.95) 100%)',
-      padding: '20px',
+      padding: '15px',
       borderRadius: '15px',
-      boxShadow: theme === 'dark'
-        ? '0 4px 20px rgba(0,0,0,0.4)'
-        : '0 4px 20px rgba(0,0,0,0.15)',
-      border: `1px solid ${theme === 'dark' ? 'rgba(75,213,238,0.3)' : 'rgba(0,135,198,0.3)'}`,
       width: '500px',
-      backdropFilter: 'blur(10px)',
+      zIndex: 100,
     }}>
       {keyboardLayout.map((row, i) => (
         <div key={i} style={{

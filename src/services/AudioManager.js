@@ -1,55 +1,31 @@
 class AudioManager {
   constructor() {
-    this.sounds = {};
-    this.musicEnabled = true;
     this.soundEnabled = true;
-    this.volume = 0.7;
+    this.soundMap = {
+      hit: new Audio('/sounds/hit.mp3'),
+      type: new Audio('/sounds/type.mp3'),
+      ambient: new Audio('/sounds/ambient.mp3'),
+    };
   }
 
-  async init() {
-    // Load game sounds
-    await Promise.all([
-      this.loadSound('keypress1', '/sounds/keypress1.mp3'),
-      this.loadSound('laser', '/sounds/laser.mp3'),
-      this.loadSound('explosion', '/sounds/explosion.mp3'),
-      this.loadSound('powerup', '/sounds/powerup.mp3'),
-      this.loadSound('gameover', '/sounds/gameover.mp3'),
-      this.loadSound('levelup', '/sounds/levelup.mp3'),
-      this.loadSound('background', '/sounds/background.mp3', true)
-    ]);
+  playSound(name) {
+    if (!this.soundEnabled || !this.soundMap[name]) return;
+    const track = this.soundMap[name];
+    track.currentTime = 0;
+    track.play().catch(console.error);
   }
 
-  loadSound(id, url, isMusic = false) {
-    return new Promise((resolve) => {
-      const audio = new Audio(url);
-      audio.addEventListener('canplaythrough', () => {
-        this.sounds[id] = {
-          element: audio,
-          isMusic
-        };
-        resolve();
-      });
-    });
-  }
-
-  playSound(id) {
-    if (!this.sounds[id]) return;
-    
-    const sound = this.sounds[id];
-    if ((sound.isMusic && !this.musicEnabled) || (!sound.isMusic && !this.soundEnabled)) {
-      return;
+  pauseSound(name) {
+    const track = this.soundMap[name];
+    if (track) {
+      track.pause();
+      track.currentTime = 0;
     }
-
-    sound.element.volume = this.volume;
-    sound.element.currentTime = 0;
-    sound.element.play();
   }
 
-  stopSound(id) {
-    if (!this.sounds[id]) return;
-    this.sounds[id].element.pause();
-    this.sounds[id].element.currentTime = 0;
+  setSoundEnabled(enabled) {
+    this.soundEnabled = enabled;
   }
 }
 
-export default AudioManager;
+export { AudioManager };

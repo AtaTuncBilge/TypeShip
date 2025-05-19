@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
-import { AudioManager } from '../utils/AudioManager';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AudioManager } from '../services/AudioManager';
+import { GameSettings, GameContextProps } from '../types';
 
 export const themeColors = {
   primary: '#E40046',
@@ -27,52 +28,41 @@ export const themeColors = {
   }
 };
 
-export interface GameSettings {
-  soundEnabled: boolean;
-  musicEnabled: boolean;
-  volume: number;
-  theme: 'light' | 'dark';
-  difficulty: string;
-  colors: typeof themeColors;
-}
-
-interface GameContextProps {
-  settings: GameSettings;
-  showSettings: boolean;
-  showAds: boolean;
-  updateSettings: (newSettings: Partial<GameSettings>) => void;
-  audioManager: AudioManager;
-  addScore: (wpm: number, accuracy: number) => void;
-}
+const audioManager = new AudioManager();
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
 
 export const GameProvider: React.FC<{
   children: React.ReactNode;
-  audioManager: AudioManager;
   initialSettings: GameSettings;
-}> = ({ children, audioManager, initialSettings }) => {
+}> = ({ children, initialSettings }) => {
   const [settings, setSettings] = useState<GameSettings>(initialSettings);
   const [showSettings, setShowSettings] = useState(false);
-  const [showAds, setShowAds] = useState(true);
+
+  useEffect(() => {
+    audioManager.soundEnabled = settings.soundEnabled;
+  }, [settings.soundEnabled]);
+
+  const toggleSettings = () => setShowSettings(prev => !prev);
 
   const updateSettings = (newSettings: Partial<GameSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-  };
-
-  const addScore = (wpm: number, accuracy: number) => {
-    // Implement score addition logic here
-    console.log(`Score added: ${wpm} WPM, ${accuracy}% accuracy`);
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      if ('soundEnabled' in newSettings) {
+        audioManager.soundEnabled = updated.soundEnabled;
+      }
+      return updated;
+    });
   };
 
   return (
     <GameContext.Provider value={{ 
-      settings, 
+      settings,
       showSettings,
-      showAds,
-      updateSettings, 
+      updateSettings,
       audioManager,
-      addScore 
+      toggleSettings,
+      addScore: (wpm, accuracy) => console.log(`Score: ${wpm} WPM, ${accuracy}% accuracy`)
     }}>
       {children}
     </GameContext.Provider>

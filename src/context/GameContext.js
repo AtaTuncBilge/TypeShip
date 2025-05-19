@@ -8,7 +8,6 @@ const defaultSettings = {
   soundEnabled: true,
   musicEnabled: true,
   volume: 0.7,
-  difficulty: 'normal', // easy, normal, hard
   theme: 'dark', // dark, light
   wordSets: ['common', 'gaming'], // active word sets
 };

@@ -3,13 +3,10 @@ import TextDisplay from '../typing/TextDisplay';
 import TypingInput from '../typing/TypingInput';
 import Stats from '../stats/Stats';
 import Settings from '../settings/Settings';
-import { AudioManager } from '../../utils/AudioManager';
-import Ads from '../ads/Ads';
+import { AudioManager } from '../../services/AudioManager';
 import { useGameContext } from '../../context/GameContext';
 import { getRandomText } from '../../utils/TextUtils';
 import Leaderboard from '../game/Leaderboard';
-
-import { TypingGameProps } from '../../types';
 
 export const TypingGame: React.FC = () => {
   const [text, setText] = useState(getRandomText());
@@ -20,11 +17,11 @@ export const TypingGame: React.FC = () => {
   const [completed, setCompleted] = useState(false);
   const [scoreSaved, setScoreSaved] = useState(false);
 
-  const { settings, showSettings, showAds, addScore } = useGameContext();
+  const { settings, showSettings, addScore } = useGameContext();
   const audioManager = useRef<AudioManager>(new AudioManager());
 
   useEffect(() => {
-    audioManager.current.init();
+    // removed: audioManager.current.init();
   }, []);
 
   const handleInputChange = (value: string) => {
@@ -56,9 +53,13 @@ export const TypingGame: React.FC = () => {
       }
     }
 
-    if (value === text) {
+    const isExactMatch = value === text && value.length > 0;
+
+    if (isExactMatch) {
       setCompleted(true);
-      audioManager.current.playCorrect();
+      if (audioManager) {
+        audioManager.current.playSound('hit');
+      }
       
       if (wpm > 0 && !scoreSaved) {
         addScore(wpm, accuracy);
@@ -112,14 +113,14 @@ export const TypingGame: React.FC = () => {
               cursor: 'pointer',
               fontSize: '16px'
             }}
-            onMouseDown={() => audioManager.current.playButton()}
+            onMouseDown={() => audioManager.current.playSound('click')}
           >
             Try Again
           </button>
         </div>
       )}
       
-      {showAds && <Ads />}
+   
       
       <Leaderboard currentWpm={wpm} currentAccuracy={accuracy} />
       

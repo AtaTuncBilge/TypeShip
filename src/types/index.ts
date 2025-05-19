@@ -1,6 +1,3 @@
-import { AudioManager } from '../utils/AudioManager';
-
-export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Theme = 'dark' | 'light';
 
 export interface ThemeColors {
@@ -29,13 +26,9 @@ export interface ThemeColors {
 }
 
 export interface GameSettings {
-  soundEnabled: boolean;
-  musicEnabled: boolean;
-  volume: number;
-  difficulty: Difficulty;
   theme: Theme;
-  wordSets: string[];
   colors: ThemeColors;
+  soundEnabled: boolean; // Add this property
 }
 
 export interface AudioManagerProps {
@@ -54,24 +47,13 @@ export interface GameStats {
   lastPlayed: string | null;
 }
 
-export interface GameContextValue {
+export interface GameContextProps {
   settings: GameSettings;
-  stats: GameStats;
-  updateSettings: (settings: Partial<GameSettings>) => void;
-  recordGameResults: (score: number, wordsTyped: number, accuracy: number, wpm: number, duration: number) => void;
+  showSettings: boolean;
+  updateSettings: (newSettings: Partial<GameSettings>) => void;
   audioManager: AudioManager;
-}
-
-export interface TextDisplayProps {
-  text: string;
-  userInput: string;
-}
-
-export interface TypingInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  completed: boolean;
-  audioManager: AudioManager;
+  addScore: (wpm: number, accuracy: number) => void;
+  toggleSettings: () => void;  // Add this line
 }
 
 // Component Props Types
@@ -94,4 +76,23 @@ export interface SettingsMenuProps {
 
 export interface TypingGameProps {
   onComplete?: () => void;
+}
+
+export interface TextDisplayProps {
+  text: string;
+  userInput: string;
+}
+
+export interface TypingInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  completed: boolean;
+  audioManager: AudioManager;
+}
+
+// Define or export the AudioManager interface to resolve the errors:
+export interface AudioManager {
+  playSound(soundName: string): void;
+  pauseSound(soundName: string): void;
+  stopSound?(soundName: string): void;
 }
