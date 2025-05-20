@@ -3,7 +3,7 @@ import { GameProvider } from './context/GameContext';
 import { GameScreen } from './components/game/GameScreen';
 import { MainMenu } from './components/layout/MainMenu';
 import { SettingsMenu } from './components/settings/SettingsMenu';
-import { AudioManager } from './utils/AudioManager';
+import { AudioManager } from './services/AudioManager';
 import { LoadingScreen } from './components/game/LoadingScreen';
 import { THEME_COLORS } from './utils/constants';
 
@@ -15,9 +15,9 @@ export const App = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [transition, setTransition] = useState(false);
 
-  // Simulate asset loading with progress updates
+  
   useEffect(() => {
-    // Initialize game resources
+    
     const loadResources = async () => {
       try {
         // Start audio initialization

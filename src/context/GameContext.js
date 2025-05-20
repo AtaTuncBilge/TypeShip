@@ -7,7 +7,6 @@ const GameContext = createContext(null);
 const defaultSettings = {
   soundEnabled: true,
   musicEnabled: true,
-  volume: 0.7,
   theme: 'dark', // dark, light
   wordSets: ['common', 'gaming'], // active word sets
 };
@@ -45,10 +44,8 @@ export const GameProvider = ({ children, audioManager, initialSettings }) => {
   useEffect(() => {
     localStorage.setItem('typeShipSettings', JSON.stringify(settings));
     
-    // Apply settings to audio manager
+    // Only handle sound enabled state
     if (audioManager) {
-      audioManager.setVolume(settings.volume);
-      audioManager.setMusicEnabled(settings.musicEnabled);
       audioManager.setSoundEnabled(settings.soundEnabled);
     }
   }, [settings, audioManager]);

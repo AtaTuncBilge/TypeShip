@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameContext } from '../../context/GameContext';
 import VirtualKeyboard from './VirtualKeyboard';
+import { WORD_LIST } from '../../constants/wordList';
 
 // Update constants
 const KEYBOARD_HEIGHT = 250;
@@ -45,19 +46,9 @@ const SpaceshipEmoji = ({ theme }) => (
   </div>
 );
 
-// Random word generation (non-pronounceable)
-const generateRandomWord = (minLength = 3, maxLength = 6) => {
-  const consonants = 'bcdfghjklmnpqrstvwxz';
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  let word = '';
-  const length = minLength + Math.floor(Math.random() * (maxLength - minLength + 1));
-  
-  for (let i = 0; i < length; i++) {
-    // Mix consonants and all letters for more randomness
-    const charset = i % 2 === 0 ? consonants : letters;
-    word += charset[Math.floor(Math.random() * charset.length)];
-  }
-  return word;
+// Replace random word generation with word list selection
+const getRandomWord = () => {
+  return WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
 };
 
 const calculateLaneHeight = (area, keyboardHeight) => {
@@ -98,7 +89,7 @@ export const GameScreen = ({ onExit }) => {
     
     return {
       id: Math.random().toString(36).substr(2, 9),
-      word: generateRandomWord(),
+      word: getRandomWord(), // Use getRandomWord instead of generateRandomWord
       x: area.clientWidth,
       y: baseY,
       speed: WORD_SPEED,
@@ -341,23 +332,22 @@ export const GameScreen = ({ onExit }) => {
 
   // Update startGame function
   const startGame = () => {
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('click');
-    }
-    
     // Initialize all lanes immediately with words
-    const initialLanes = [[], [], []];
-    for (let i = 0; i < LANE_COUNT; i++) {
+    const initialLanes = Array(LANE_COUNT).fill([]).map((_, laneIndex) => {
+      const words = [];
       const spacing = gameAreaRef.current.clientWidth / 3;
-      for (let j = 0; j < 3; j++) {
-        const newWord = generateWord(gameAreaRef.current, i);
-        if (newWord) {
-          newWord.x = gameAreaRef.current.clientWidth + (j * spacing);
-          initialLanes[i].push(newWord);
+      
+      // Pre-populate 3 words per lane with proper spacing
+      for (let i = 0; i < 3; i++) {
+        const word = generateWord(gameAreaRef.current, laneIndex);
+        if (word) {
+          word.x = gameAreaRef.current.clientWidth + (i * spacing);
+          words.push(word);
         }
       }
-    }
-    
+      return words;
+    });
+
     setLanes(initialLanes);
     setIsGameActive(true);
     setTimeLeft(60);
@@ -367,8 +357,8 @@ export const GameScreen = ({ onExit }) => {
     setGameOver(false);
     setTyped('');
     
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
-    inputRef.current?.focus();
+    // Start game loop immediately
+    requestAnimationFrame(gameLoop);
 
     if (settings.soundEnabled && audioManager) {
       audioManager.playSound('ambient'); // keep for background
