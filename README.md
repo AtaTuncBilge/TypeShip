@@ -1,3 +1,5 @@
+![446280874-1396f266-b8d7-4442-9ac2-22c7e66e586b](https://github.com/user-attachments/assets/2794690b-f7d9-42b0-82a1-5eb137084077)
+
 Type Ship 🚀
 
 Welcome to Type Ship – a fast and fun typing game with a spaceship twist!
