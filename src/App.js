@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { GameProvider } from './context/GameContext';
 import { GameScreen } from './components/game/GameScreen';
 import { MainMenu } from './components/layout/MainMenu';
-import { SettingsMenu } from './components/settings/SettingsMenu';
+import  SettingsMenu  from './components/settings/SettingsMenu';
 import { LoadingScreen } from './components/game/LoadingScreen';
 import { THEME_COLORS } from './utils/constants';
 import LeaderboardModal from './components/game/LeaderboardModal';

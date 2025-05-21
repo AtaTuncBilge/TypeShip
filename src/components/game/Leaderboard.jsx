@@ -1,23 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useGameContext } from '../../context/GameContext';
 
 const Leaderboard = ({ currentWpm, currentAccuracy }) => {
   const { settings, leaderboard } = useGameContext();
   const { theme, colors } = settings;
   const currentTheme = theme === 'light' ? colors.light : colors.dark;
-  const [sortBy, setSortBy] = useState('wpm'); // Default sort by WPM
 
-  // Sort the leaderboard based on the selected criteria
-  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
-    if (sortBy === 'wpm') return b.wpm - a.wpm;
-    if (sortBy === 'accuracy') return b.accuracy - a.accuracy;
-    if (sortBy === 'date') return new Date(b.created_at) - new Date(a.created_at);
-    return 0;
-  });
-
-  const handleSortChange = (criteria) => {
-    setSortBy(criteria);
-  };
+  // Always sort by WPM descending
+  const sortedLeaderboard = [...leaderboard].sort((a, b) => b.wpm - a.wpm);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -50,33 +40,6 @@ const Leaderboard = ({ currentWpm, currentAccuracy }) => {
         }}>
           Leaderboard
         </h2>
-        
-        <div style={{
-          display: 'flex',
-          gap: '8px'
-        }}>
-          <SortButton 
-            active={sortBy === 'wpm'} 
-            onClick={() => handleSortChange('wpm')}
-            label="WPM"
-            currentTheme={currentTheme}
-            colors={colors}
-          />
-          <SortButton 
-            active={sortBy === 'accuracy'} 
-            onClick={() => handleSortChange('accuracy')}
-            label="Accuracy"
-            currentTheme={currentTheme}
-            colors={colors}
-          />
-          <SortButton 
-            active={sortBy === 'date'} 
-            onClick={() => handleSortChange('date')}
-            label="Recent"
-            currentTheme={currentTheme}
-            colors={colors}
-          />
-        </div>
       </div>
       
       <div style={{
@@ -126,22 +89,20 @@ const Leaderboard = ({ currentWpm, currentAccuracy }) => {
                 width: '20%', 
                 textAlign: 'center',
                 fontWeight: '600',
-                color: sortBy === 'wpm' ? colors.primary : currentTheme.text
+                color: colors.primary
               }}>
                 {entry.wpm}
               </span>
               <span style={{ 
                 width: '20%', 
-                textAlign: 'center',
-                color: sortBy === 'accuracy' ? colors.primary : currentTheme.text
+                textAlign: 'center'
               }}>
                 {entry.accuracy}%
               </span>
               <span style={{ 
                 width: '20%', 
                 textAlign: 'right',
-                fontSize: '0.9rem',
-                color: sortBy === 'date' ? colors.primary : currentTheme.neutral
+                fontSize: '0.9rem'
               }}>
                 {formatDate(entry.created_at)}
               </span>
@@ -178,25 +139,5 @@ const Leaderboard = ({ currentWpm, currentAccuracy }) => {
     </div>
   );
 };
-
-// Helper component for sort buttons
-const SortButton = ({ active, onClick, label, currentTheme, colors }) => (
-  <button
-    onClick={onClick}
-    style={{
-      padding: '6px 12px',
-      backgroundColor: active ? colors.primary : 'transparent',
-      color: active ? '#fff' : currentTheme.text,
-      border: active ? 'none' : `1px solid ${currentTheme.border}`,
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '0.8rem',
-      fontWeight: active ? '600' : '400',
-      transition: 'all 0.2s ease'
-    }}
-  >
-    {label}
-  </button>
-);
 
 export default Leaderboard;

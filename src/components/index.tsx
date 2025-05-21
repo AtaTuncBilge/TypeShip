@@ -1,22 +1,13 @@
-import { GameScreen } from './game/GameScreen';
-import { LoadingScreen } from './game/LoadingScreen';
-import { MainMenu } from './layout/MainMenu';
-import { SettingsMenu } from './settings/SettingsMenu';
-import { TextDisplay } from './typing/TextDisplay';
-import { TypingInput } from './typing/TypingInput';
-import { TypingGame } from './typing/TypingGame';
+export {  GameScreen } from './game/GameScreen';
+export { LoadingScreen } from './game/LoadingScreen';
+export { default as MainMenu } from './layout/MainMenu';
+export { default as SettingsMenu } from './settings/SettingsMenu';
+export { default as Settings } from './settings/Settings';
+export { default as TextDisplay } from './typing/TextDisplay';
+export { default as TypingInput } from './typing/TypingInput';
+export { default as TypingGame } from './typing/TypingGame';
 
-export {
-  GameScreen,
-  LoadingScreen,
-  MainMenu,
-  SettingsMenu,
-  TextDisplay,
-  TypingInput,
-  TypingGame
-};
-
-// Export component types from global types
+// Component type'larını eklemek istiyorsan altta type exportları olabilir.
 export type { 
   GameScreenProps,
   LoadingScreenProps,
@@ -25,4 +16,4 @@ export type {
   TextDisplayProps,
   TypingInputProps,
   TypingGameProps 
-} from '../types'; // Fixed the semicolon typo
+} from '../types';

@@ -20,13 +20,17 @@ const LeaderboardModal = ({ data: initialData, onClose }) => {
         border: '#e0e0e0'
       };
 
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState(
+    Array.isArray(initialData)
+      ? [...initialData].sort((a, b) => b.wpm - a.wpm)
+      : []
+  );
 
   // 1. Veritabanından skorları çek
   useEffect(() => {
     fetch('http://localhost:3001/results')
       .then(res => res.json())
-      .then(scores => setData(scores))
+      .then(scores => setData([...scores].sort((a, b) => b.wpm - a.wpm)))
       .catch(() => setData([]));
   }, []);
 

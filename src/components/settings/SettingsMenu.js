@@ -1,242 +1,438 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
+import { THEME_COLORS } from '../../constants/theme';
 
-export const SettingsMenu = ({ onBack }) => {
-  const { settings, updateSettings } = useGameContext();
-  const [buttonHover, setButtonHover] = useState(null);
-  const [playerName, setPlayerName] = useState(() => 
-    localStorage.getItem('typingGamePlayerName') || ''
-  );
-  const theme = settings?.theme || 'dark';
+const getBackgroundStyle = (theme) => ({
+  background: theme === 'dark'
+    ? 'radial-gradient(circle, rgba(32, 41, 64, 0.8) 0%, #0a0d13 100%)'
+    : 'radial-gradient(circle, rgba(230, 240, 255, 0.8) 0%, #f5f5f5 100%)'
+});
 
-  const handleNameChange = (e) => {
-    setPlayerName(e.target.value);
+// MainMenu button style for consistency
+const mainMenuButtonStyle = (theme, type = 'primary', active = true) => {
+  if (type === 'primary') {
+    return {
+      padding: '15px 25px',
+      fontSize: '1.2rem',
+      backgroundColor: theme === 'dark' ? '#4bd5ee' : '#0087c6',
+      color: theme === 'dark' ? '#121212' : '#fff',
+      border: 'none',
+      borderRadius: '30px',
+      cursor: active ? 'pointer' : 'not-allowed',
+      fontWeight: 'bold',
+      boxShadow: theme === 'dark'
+        ? '0 0 10px rgba(75, 213, 238, 0.5)'
+        : '0 0 10px rgba(0, 135, 198, 0.3)',
+      opacity: active ? 1 : 0.5,
+      fontFamily: 'Orbitron, sans-serif',
+      letterSpacing: '1px',
+      marginBottom: '10px',
+      transition: 'all 0.2s ease-in-out',
+    };
+  }
+  // secondary/outline
+  return {
+    padding: '15px 25px',
+    fontSize: '1.2rem',
+    backgroundColor: 'transparent',
+    color: theme === 'dark' ? '#4bd5ee' : '#0087c6',
+    border: `2px solid ${theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
+    borderRadius: '30px',
+    cursor: active ? 'pointer' : 'not-allowed',
+    fontWeight: 'bold',
+    boxShadow: 'none',
+    opacity: active ? 1 : 0.5,
+    fontFamily: 'Orbitron, sans-serif',
+    letterSpacing: '1px',
+    marginBottom: '10px',
+    transition: 'all 0.2s ease-in-out',
+  };
+};
+
+const themeButtonStyle = (theme, selected) => ({
+  padding: '15px 25px',
+  fontSize: '1.1rem',
+  backgroundColor: selected
+    ? (theme === 'dark' ? '#4bd5ee' : '#0087c6')
+    : 'transparent',
+  color: selected
+    ? (theme === 'dark' ? '#121212' : '#fff')
+    : (theme === 'dark' ? '#4bd5ee' : '#0087c6'),
+  border: `2px solid ${theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
+  borderRadius: '30px',
+  cursor: 'pointer',
+  fontWeight: selected ? 'bold' : 'normal',
+  boxShadow: selected
+    ? (theme === 'dark'
+      ? '0 0 10px rgba(75, 213, 238, 0.5)'
+      : '0 0 10px rgba(0, 135, 198, 0.3)')
+    : 'none',
+  fontFamily: 'Orbitron, sans-serif',
+  letterSpacing: '1px',
+  marginBottom: 0,
+  transition: 'all 0.2s ease-in-out',
+});
+
+const SettingsMenu = (props) => {
+  const context = useGameContext?.();
+  const settings = context?.settings || props.settings;
+  const updateSettings = context?.updateSettings;
+  const theme = settings?.theme || props.theme || 'dark';
+  const colors = THEME_COLORS[theme];
+
+  // Use context or prop for playerName
+  const [playerName, setPlayerName] = useState(props.playerName || '');
+  const [isSaved, setIsSaved] = useState(true);
+  const [notif, setNotif] = useState(null);
+  const [notifVisible, setNotifVisible] = useState(false);
+
+  const inputStyle = {
+    width: '100%',
+    padding: '14px 18px',
+    marginBottom: '12px',
+    backgroundColor: theme === 'dark' ? 'rgba(30, 35, 45, 0.85)' : 'rgba(255,255,255,0.8)',
+    color: colors.text,
+    border: `2px solid ${colors.primary}`,
+    borderRadius: '30px',
+    fontSize: '1.1rem',
+    outline: 'none',
+    fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+    boxShadow: theme === 'dark'
+      ? '0 0 10px rgba(75, 213, 238, 0.15)'
+      : '0 0 10px rgba(0, 135, 198, 0.08)',
   };
 
-  const savePlayerName = () => {
+  const buttonStyle = (active = true, isPrimary = false, isSelected = false) => ({
+    padding: '15px 28px',
+    fontSize: '1.15rem',
+    background: isPrimary
+      ? `linear-gradient(90deg, ${colors.primary} 0%, ${colors.secondary} 100%)`
+      : (isSelected
+        ? `linear-gradient(90deg, ${colors.primary} 0%, ${colors.secondary} 100%)`
+        : colors.buttonBg),
+    color: isPrimary || isSelected ? (theme === 'dark' ? '#181d26' : '#fff') : colors.text,
+    border: isPrimary || isSelected ? 'none' : `2px solid ${colors.primary}`,
+    borderRadius: '30px',
+    cursor: active ? 'pointer' : 'not-allowed',
+    fontWeight: isSelected ? 'bold' : 'normal',
+    boxShadow: active
+      ? (isPrimary || isSelected
+        ? `0 0 18px ${colors.primary}55`
+        : 'none')
+      : 'none',
+    opacity: active ? 1 : 0.6,
+    marginBottom: '10px',
+    position: 'relative',
+    overflow: 'hidden',
+    transition: 'background 0.2s, color 0.2s, box-shadow 0.2s, border 0.2s',
+    outline: isSelected ? `2.5px solid ${colors.primary}` : 'none',
+    fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
+    letterSpacing: '1px',
+  });
+
+  const notifStyle = (type) => ({
+    padding: '12px 24px',
+    borderRadius: '18px',
+    background: type === 'success'
+      ? 'linear-gradient(90deg, #4bd5ee 0%, #00e676 100%)'
+      : 'linear-gradient(90deg, #ff5252 0%, #ffb300 100%)',
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: '1rem',
+    margin: '10px 0 0 0',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+    display: 'inline-block',
+    animation: 'notifPop 0.5s cubic-bezier(.4,2,.6,1)',
+    fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
+  });
+
+  // Save name handler with fade in/out for notification and update context/playerName in localStorage
+  const handleSaveName = () => {
     if (playerName.trim().length >= 3) {
+      setIsSaved(true);
+      setNotif({ type: 'success', msg: 'Name saved! 🚀' });
+      setNotifVisible(true);
+      if (context?.updateSettings) {
+        context.updateSettings({ playerName: playerName.trim() });
+      }
+      if (props.onNameChange) props.onNameChange(playerName.trim());
+      // Update localStorage for main menu
       localStorage.setItem('typingGamePlayerName', playerName.trim());
-      // Optional: Show save confirmation
+    } else {
+      setNotif({ type: 'error', msg: 'Name must be at least 3 characters.' });
+      setNotifVisible(true);
+    }
+    setTimeout(() => setNotifVisible(false), 1500);
+    setTimeout(() => setNotif(null), 2000);
+  };
+
+  // Tema değiştirici (context varsa context ile, yoksa prop ile)
+  const handleThemeChange = (newTheme) => {
+    if (updateSettings) {
+      updateSettings({ theme: newTheme });
+    } else if (props.onThemeChange) {
+      props.onThemeChange(newTheme);
     }
   };
 
+  // Floating emojis
+  const floatingEmojis = (
+    <div
+      style={{
+        position: 'fixed',
+        width: '100vw',
+        height: '100vh',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}
+    >
+      {/* Spaceships */}
+      <div style={{
+        position: 'absolute', top: '10%', right: '10%', fontSize: '2.5rem',
+        animation: 'float 5s ease-in-out infinite', opacity: 0.85,
+        transform: 'rotate(-15deg)', filter: 'drop-shadow(0 0 16px #4bd5ee)', userSelect: 'none',
+      }}>🚀</div>
+      <div style={{
+        position: 'absolute', bottom: '12%', left: '10%', fontSize: '2.2rem',
+        animation: 'float2 6s ease-in-out infinite', opacity: 0.8,
+        transform: 'rotate(20deg) scaleX(-1)', filter: 'drop-shadow(0 0 14px #4bd5ee)', userSelect: 'none',
+      }}>🚀</div>
+      <div style={{
+        position: 'absolute', top: '45%', left: '7%', fontSize: '2.2rem',
+        animation: 'float3 7s ease-in-out infinite', opacity: 0.7,
+        transform: 'rotate(-5deg)', filter: 'drop-shadow(0 0 14px #4bd5ee)', userSelect: 'none',
+      }}>🚀</div>
+      {/* Meteors */}
+      <div style={{
+        position: 'absolute', top: '15%', left: '8%', fontSize: '2rem',
+        animation: 'meteor-float-1 6s ease-in-out infinite', opacity: 0.8,
+        transform: 'rotate(-35deg)', filter: 'drop-shadow(0 0 12px #ff9800)', userSelect: 'none',
+      }}>☄️</div>
+      <div style={{
+        position: 'absolute', top: '80%', right: '15%', fontSize: '1.7rem',
+        animation: 'meteor-float-4 9s ease-in-out infinite', opacity: 0.7,
+        transform: 'rotate(-30deg)', filter: 'drop-shadow(0 0 10px #ff9800)', userSelect: 'none',
+      }}>☄️</div>
+      {/* Stars */}
+      <div style={{
+        position: 'absolute', top: '20%', left: '25%', fontSize: '1.2rem',
+        animation: 'star-float-1 5s ease-in-out infinite', opacity: 0.7, userSelect: 'none',
+      }}>✨</div>
+      <div style={{
+        position: 'absolute', top: '60%', left: '60%', fontSize: '1.5rem',
+        animation: 'star-float-2 7s ease-in-out infinite', opacity: 0.8, userSelect: 'none',
+      }}>⭐</div>
+      <div style={{
+        position: 'absolute', top: '30%', right: '20%', fontSize: '1.1rem',
+        animation: 'star-float-3 6s ease-in-out infinite', opacity: 0.6, userSelect: 'none',
+      }}>🌟</div>
+      <div style={{
+        position: 'absolute', bottom: '18%', left: '55%', fontSize: '1.3rem',
+        animation: 'star-float-4 8s ease-in-out infinite', opacity: 0.7, userSelect: 'none',
+      }}>✨</div>
+    </div>
+  );
+
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
+      position: 'relative',
+      minHeight: '100vh',
       width: '100vw',
-      backgroundColor: theme === 'dark' ? '#121212' : '#f5f5f5',
-      color: theme === 'dark' ? '#e0e0e0' : '#333',
+      ...getBackgroundStyle(theme),
+      color: colors.text,
       fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
       overflow: 'hidden',
-      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '40px 10px',
     }}>
-      {/* Background elements - same as main menu for consistency */}
+      {floatingEmojis}
       <div style={{
-        position: 'absolute',
-        width: '100%',
-        height: '100%',
-        background: `radial-gradient(circle, ${theme === 'dark' ? 'rgba(32, 41, 64, 0.8)' : 'rgba(230, 240, 255, 0.8)'} 0%, ${theme === 'dark' ? 'rgba(18, 18, 18, 1)' : 'rgba(245, 245, 245, 1)'} 100%)`,
-        zIndex: 0,
-      }} />
-      
-      {/* Stars background - only in dark mode */}
-      {theme === 'dark' && (
-        <div style={{
-          position: 'absolute',
-          width: '100%',
-          height: '100%',
-          background: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'400\' viewBox=\'0 0 800 800\'%3E%3Cg fill=\'none\' stroke=\'%23404\' stroke-width=\'1\'%3E%3Cpath d=\'M769 229L1037 260.9M927 880L731 737 520 660 309 538 40 599 295 764 126.5 879.5 40 599-197 493 102 382-31 229 126.5 79.5-69-63\'/%3E%3Cpath d=\'M-31 229L237 261 390 382 603 493 308.5 537.5 101.5 381.5M370 905L295 764\'/%3E%3Cpath d=\'M520 660L578 842 731 737 840 599 603 493 520 660 295 764 309 538 390 382 539 269 769 229 577.5 41.5 370 105 295 -36 126.5 79.5 237 261 102 382 40 599 -69 737 127 880\'/%3E%3Cpath d=\'M520-140L578.5 42.5 731-63M603 493L539 269 237 261 370 105M902 382L539 269M390 382L102 382\'/%3E%3Cpath d=\'M-222 42L126.5 79.5 370 105 539 269 577.5 41.5 927 80 769 229 902 382 603 493 731 737M295-36L577.5 41.5M578 842L295 764M40-201L127 80M102 382L-261 269\'/%3E%3C/g%3E%3Cg fill=\'%23505\'%3E%3Ccircle cx=\'769\' cy=\'229\' r=\'5\'/%3E%3Ccircle cx=\'539\' cy=\'269\' r=\'5\'/%3E%3Ccircle cx=\'603\' cy=\'493\' r=\'5\'/%3E%3Ccircle cx=\'731\' cy=\'737\' r=\'5\'/%3E%3Ccircle cx=\'520\' cy=\'660\' r=\'5\'/%3E%3Ccircle cx=\'309\' cy=\'538\' r=\'5\'/%3E%3Ccircle cx=\'295\' cy=\'764\' r=\'5\'/%3E%3Ccircle cx=\'40\' cy=\'599\' r=\'5\'/%3E%3Ccircle cx=\'102\' cy=\'382\' r=\'5\'/%3E%3Ccircle cx=\'127\' cy=\'80\' r=\'5\'/%3E%3Ccircle cx=\'370\' cy=\'105\' r=\'5\'/%3E%3Ccircle cx=\'578\' cy=\'42\' r=\'5\'/%3E%3Ccircle cx=\'237\' cy=\'261\' r=\'5\'/%3E%3Ccircle cx=\'390\' cy=\'382\' r=\'5\'/%3E%3C/g%3E%3C/svg%3E")',
-          opacity: 0.3,
-          zIndex: 0,
-        }} />
-      )}
-      
-      {/* Content container */}
-      <div style={{ 
         position: 'relative',
         zIndex: 1,
+        background: colors.surface,
+        borderRadius: '24px',
+        boxShadow: theme === 'dark'
+          ? '0 8px 40px 0 #000a, 0 1.5px 8px 0 #4bd5ee33'
+          : '0 8px 40px 0 #0002',
+        padding: '40px 32px 32px 32px',
+        minWidth: '320px',
+        maxWidth: '95vw',
+        width: '400px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        textAlign: 'center',
-        width: '100%',
-        maxWidth: '500px',
+        justifyContent: 'center'
       }}>
-        {/* Settings Title */}
-        <h1 style={{
-          fontSize: '3rem',
-          marginBottom: '2rem',
-          textShadow: theme === 'dark' ? '0 0 10px rgba(75, 213, 238, 0.7)' : '0 0 10px rgba(0, 135, 198, 0.4)',
-          letterSpacing: '3px',
+        <h2 style={{
+          color: colors.primary,
+          fontSize: '2.1rem',
+          marginBottom: '18px',
+          letterSpacing: '2px',
+          fontWeight: 700,
+          textShadow: theme === 'dark'
+            ? '0 0 12px #4bd5ee99'
+            : '0 0 10px #0087c699',
+          textAlign: 'center'
         }}>
-          SETTINGS
-        </h1>
-        
-        {/* Settings Container */}
+          Settings
+        </h2>
+        {/* Name input */}
+        <div style={{ width: '100%', marginBottom: '18px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <label htmlFor="playerName" style={{
+            fontWeight: 600,
+            marginBottom: '8px',
+            display: 'block',
+            color: colors.primary,
+            letterSpacing: '1px',
+            textAlign: 'center'
+          }}>
+            👤 Change Name
+          </label>
+          <input
+            id="playerName"
+            type="text"
+            placeholder="Enter your name (min 3 chars)"
+            value={playerName}
+            onChange={e => {
+              setPlayerName(e.target.value);
+              setIsSaved(false);
+            }}
+            minLength={3}
+            maxLength={15}
+            style={inputStyle}
+          />
+          <button
+            onClick={handleSaveName}
+            disabled={playerName.trim().length < 3}
+            style={mainMenuButtonStyle(theme, 'primary', playerName.trim().length >= 3)}
+          >
+            {isSaved ? 'Saved ✔️' : 'Save Name'}
+          </button>
+          {notif && (
+            <div
+              style={{
+                ...notifStyle(notif.type),
+                opacity: notifVisible ? 1 : 0,
+                transition: 'opacity 0.5s',
+                pointerEvents: 'none'
+              }}
+            >
+              {notif.msg}
+            </div>
+          )}
+        </div>
+        {/* Theme toggle */}
         <div style={{
           width: '100%',
-          backgroundColor: theme === 'dark' ? 'rgba(30, 34, 40, 0.7)' : 'rgba(255, 255, 255, 0.7)',
-          borderRadius: '10px',
-          padding: '20px',
-          marginBottom: '20px',
-          boxShadow: theme === 'dark' ? '0 0 20px rgba(0, 0, 0, 0.3)' : '0 0 20px rgba(0, 0, 0, 0.1)',
+          marginBottom: '18px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
         }}>
-          {/* Player Name Change */}
-          <div style={{
-            padding: '15px 0',
-            borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#ddd'}`,
+          <label style={{
+            fontWeight: 600,
+            marginBottom: '8px',
+            display: 'block',
+            color: colors.primary,
+            letterSpacing: '1px',
+            textAlign: 'center'
           }}>
-            <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif', display: 'block', marginBottom: '10px' }}>
-              Change Player Name
-            </span>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input
-                type="text"
-                value={playerName}
-                onChange={handleNameChange}
-                placeholder="Enter new name (min. 3 chars)"
-                minLength={3}
-                maxLength={15}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  backgroundColor: theme === 'dark' ? '#2a2a2a' : '#fff',
-                  border: `1px solid ${theme === 'dark' ? '#444' : '#ddd'}`,
-                  borderRadius: '4px',
-                  color: theme === 'dark' ? '#e0e0e0' : '#333',
-                }}
-              />
-              <button
-                onClick={savePlayerName}
-                disabled={playerName.trim().length < 3}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: theme === 'dark' ? '#4bd5ee' : '#0087c6',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: playerName.trim().length >= 3 ? 'pointer' : 'not-allowed',
-                  opacity: playerName.trim().length >= 3 ? 1 : 0.5,
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-
-          {/* Theme Selection */}
+            Theme
+          </label>
           <div style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '15px 0',
+            gap: '14px',
+            justifyContent: 'center',
+            width: '100%'
           }}>
-            <span style={{ fontSize: '1.1rem', fontFamily: '"Exo 2", sans-serif' }}>Dark Theme</span>
-            <label style={{
-              position: 'relative',
-              display: 'inline-block',
-              width: '60px',
-              height: '30px',
-            }}>
-              <input
-                type="checkbox"
-                checked={settings.theme === 'dark'}
-                onChange={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-                style={{ opacity: 0, width: 0, height: 0 }}
-              />
-              <span style={{
-                position: 'absolute',
-                cursor: 'pointer',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: settings.theme === 'dark' ? '#4bd5ee' : '#ccc',
-                transition: '0.4s',
-                borderRadius: '34px',
-                '&:before': {
-                  position: 'absolute',
-                  content: '""',
-                  height: '22px',
-                  width: '22px',
-                  left: '4px',
-                  bottom: '4px',
-                  backgroundColor: 'white',
-                  transition: '0.4s',
-                  borderRadius: '50%',
-                }
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  height: '22px',
-                  width: '22px',
-                  left: settings.theme === 'dark' ? '34px' : '4px',
-                  bottom: '4px',
-                  backgroundColor: 'white',
-                  transition: '0.4s',
-                  borderRadius: '50%',
-                }}></span>
-              </span>
-            </label>
+            <button
+              onClick={() => handleThemeChange('dark')}
+              style={themeButtonStyle(theme, theme === 'dark')}
+            >
+              Dark
+            </button>
+            <button
+              onClick={() => handleThemeChange('light')}
+              style={themeButtonStyle(theme, theme === 'light')}
+            >
+              Light
+            </button>
           </div>
         </div>
-        
-        {/* Back Button */}
+        {/* Back button */}
         <button
-          onClick={onBack}
-          onMouseEnter={() => setButtonHover('back')}
-          onMouseLeave={() => setButtonHover(null)}
-          style={{
-            padding: '15px 25px',
-            fontSize: '1.2rem',
-            backgroundColor: buttonHover === 'back' 
-              ? (theme === 'dark' ? '#5be8fa' : '#0098d9') 
-              : (theme === 'dark' ? '#4bd5ee' : '#0087c6'),
-            color: theme === 'dark' ? '#121212' : 'white',
-            border: 'none',
-            borderRadius: '30px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            boxShadow: buttonHover === 'back'
-              ? (theme === 'dark' ? '0 0 15px rgba(75, 213, 238, 0.9)' : '0 0 15px rgba(0, 135, 198, 0.6)')
-              : (theme === 'dark' ? '0 0 10px rgba(75, 213, 238, 0.5)' : '0 0 10px rgba(0, 135, 198, 0.3)'),
-            transform: buttonHover === 'back' ? 'translateY(-2px)' : 'none',
-            transition: 'all 0.2s ease-in-out',
-            fontFamily: 'Orbitron, sans-serif',
-          }}
+          onClick={props.onBack}
+          style={mainMenuButtonStyle(theme, 'secondary', true)}
         >
-          BACK TO MENU
+          ← Back to Menu
         </button>
       </div>
-      
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@400;700&display=swap');
-        
-        /* Custom slider styles */
-        input[type=range]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: ${theme === 'dark' ? '#4bd5ee' : '#0087c6'};
-          cursor: pointer;
+        @keyframes float {
+          0% { transform: translateY(0) rotate(-15deg);}
+          50% { transform: translateY(-18px) rotate(-15deg);}
+          100% { transform: translateY(0) rotate(-15deg);}
         }
-        
-        input[type=range]::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: ${theme === 'dark' ? '#4bd5ee' : '#0087c6'};
-          cursor: pointer;
+        @keyframes float2 {
+          0% { transform: translateY(0) rotate(20deg) scaleX(-1);}
+          50% { transform: translateY(-14px) rotate(20deg) scaleX(-1);}
+          100% { transform: translateY(0) rotate(20deg) scaleX(-1);}
+        }
+        @keyframes float3 {
+          0% { transform: translateY(0) rotate(-5deg);}
+          50% { transform: translateY(-10px) rotate(-5deg);}
+          100% { transform: translateY(0) rotate(-5deg);}
+        }
+        @keyframes meteor-float-1 {
+          0% { transform: translateY(0) rotate(-35deg);}
+          50% { transform: translateY(-10px) rotate(-35deg);}
+          100% { transform: translateY(0) rotate(-35deg);}
+        }
+        @keyframes meteor-float-4 {
+          0% { transform: translateY(0) rotate(-30deg);}
+          50% { transform: translateY(-14px) rotate(-30deg);}
+          100% { transform: translateY(0) rotate(-30deg);}
+        }
+        @keyframes star-float-1 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-6px);}
+          100% { transform: translateY(0);}
+        }
+        @keyframes star-float-2 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-10px);}
+          100% { transform: translateY(0);}
+        }
+        @keyframes star-float-3 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-8px);}
+          100% { transform: translateY(0);}
+        }
+        @keyframes star-float-4 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-12px);}
+          100% { transform: translateY(0);}
+        }
+        @keyframes notifPop {
+          0% { transform: scale(0.7); opacity: 0; }
+          60% { transform: scale(1.1); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @media (max-width: 600px) {
+          div[style*="min-width: 320px"] {
+            min-width: 0 !important;
+            width: 98vw !important;
+            padding: 20px 4vw 20px 4vw !important;
+          }
         }
       `}</style>
     </div>
   );
 };
+
+export default SettingsMenu;

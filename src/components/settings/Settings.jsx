@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
 
-export const Settings = ({ onClose }) => {
+const Settings = ({ onClose }) => {
   const { settings } = useGameContext();
   const playerName = localStorage.getItem('typingGamePlayerName');
   const [name, setName] = useState(playerName || '');

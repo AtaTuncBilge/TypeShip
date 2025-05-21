@@ -33,7 +33,9 @@ export const MainMenu = ({ onPlay, onSettings }) => {
           if (!res.ok) throw new Error('Failed to fetch leaderboard');
           return res.json();
         })
-        .then(data => setLeaderboard(data))
+        .then(data => setLeaderboard(
+          [...data].sort((a, b) => b.wpm - a.wpm) // Sort by WPM descending
+        ))
         .catch(err => setLeaderboardError('Could not load leaderboard.'))
         .finally(() => setLoadingLeaderboard(false));
     }
@@ -101,13 +103,17 @@ export const MainMenu = ({ onPlay, onSettings }) => {
       alignItems: 'center',
       height: '100vh',
       width: '100vw',
-      backgroundColor: theme === 'dark' ? '#121212' : '#f5f5f5',
+      // Use the same background as SettingsMenu for consistency
+      background: theme === 'dark'
+        ? 'radial-gradient(circle, rgba(32, 41, 64, 0.8) 0%, #0a0d13 100%)'
+        : 'radial-gradient(circle, rgba(230, 240, 255, 0.8) 0%, #f5f5f5 100%)',
       color: theme === 'dark' ? '#e0e0e0' : '#333',
       fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
       overflow: 'hidden',
       position: 'relative',
     }}>
       {/* Background elements */}
+      {/* Remove old backgroundColor, keep only the new background */}
       <div style={{
         position: 'absolute',
         width: '100%',
@@ -115,6 +121,168 @@ export const MainMenu = ({ onPlay, onSettings }) => {
         background: `radial-gradient(circle, ${theme === 'dark' ? 'rgba(32, 41, 64, 0.8)' : 'rgba(230, 240, 255, 0.8)'} 0%, ${theme === 'dark' ? 'rgba(18, 18, 18, 1)' : 'rgba(245, 245, 245, 1)'} 100%)`,
         zIndex: 0,
       }} />
+
+      {/* Animated meteors, spaceships, and stars (floating in place) */}
+      <div
+        style={{
+          position: 'fixed',
+          width: '100vw',
+          height: '100vh',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      >
+        {/* Spaceship 1 - top right, floating */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '10%',
+            right: '10%',
+            fontSize: '3rem',
+            animation: 'float 5s ease-in-out infinite',
+            zIndex: 0,
+            opacity: 0.85,
+            transform: 'rotate(-15deg)',
+            filter: 'drop-shadow(0 0 20px #4bd5ee)',
+            userSelect: 'none',
+          }}
+        >🚀</div>
+        {/* Spaceship 2 - bottom left, floating */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '12%',
+            left: '10%',
+            fontSize: '2.7rem',
+            animation: 'float2 6s ease-in-out infinite',
+            zIndex: 0,
+            opacity: 0.8,
+            transform: 'rotate(20deg) scaleX(-1)',
+            filter: 'drop-shadow(0 0 18px #4bd5ee)',
+            userSelect: 'none',
+          }}
+        >🚀</div>
+        {/* Spaceship 3 - center left, floating */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '45%',
+            left: '7%',
+            fontSize: '2.2rem',
+            animation: 'float3 7s ease-in-out infinite',
+            zIndex: 0,
+            opacity: 0.7,
+            transform: 'rotate(-5deg)',
+            filter: 'drop-shadow(0 0 14px #4bd5ee)',
+            userSelect: 'none',
+          }}
+        >🚀</div>
+        {/* Meteor 1 - top left, floating, correct direction */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '12%',
+            left: '8%',
+            fontSize: '2.5rem',
+            animation: 'meteor-float-1 6s ease-in-out infinite',
+            zIndex: 0,
+            opacity: 0.8,
+            transform: 'rotate(-35deg)',
+            filter: 'drop-shadow(0 0 16px #ff9800)',
+            userSelect: 'none',
+          }}
+        >☄️</div>
+        {/* Meteor 2 - mid left, floating, correct direction */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '40%',
+            left: '12%',
+            fontSize: '2.2rem',
+            animation: 'meteor-float-2 7s ease-in-out infinite',
+            zIndex: 0,
+            opacity: 0.7,
+            transform: 'rotate(-25deg)',
+            filter: 'drop-shadow(0 0 12px #ff9800)',
+            userSelect: 'none',
+          }}
+        >☄️</div>
+        {/* Meteor 3 - bottom left, floating, correct direction */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '75%',
+            left: '18%',
+            fontSize: '1.8rem',
+            animation: 'meteor-float-3 8s ease-in-out infinite',
+            zIndex: 0,
+            opacity: 0.6,
+            transform: 'rotate(-45deg)',
+            filter: 'drop-shadow(0 0 10px #ff9800)',
+            userSelect: 'none',
+          }}
+        >☄️</div>
+        {/* Meteor 4 - bottom right, floating, correct direction */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '80%',
+            right: '15%',
+            fontSize: '2.1rem',
+            animation: 'meteor-float-4 9s ease-in-out infinite',
+            zIndex: 0,
+            opacity: 0.7,
+            transform: 'rotate(-30deg)',
+            filter: 'drop-shadow(0 0 12px #ff9800)',
+            userSelect: 'none',
+          }}
+        >☄️</div>
+        {/* Stars - scattered, floating */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '20%',
+            left: '25%',
+            fontSize: '1.2rem',
+            animation: 'star-float-1 5s ease-in-out infinite',
+            opacity: 0.7,
+            userSelect: 'none',
+          }}
+        >✨</div>
+        <div
+          style={{
+            position: 'absolute',
+            top: '60%',
+            left: '60%',
+            fontSize: '1.5rem',
+            animation: 'star-float-2 7s ease-in-out infinite',
+            opacity: 0.8,
+            userSelect: 'none',
+          }}
+        >⭐</div>
+        <div
+          style={{
+            position: 'absolute',
+            top: '30%',
+            right: '20%',
+            fontSize: '1.1rem',
+            animation: 'star-float-3 6s ease-in-out infinite',
+            opacity: 0.6,
+            userSelect: 'none',
+          }}
+        >🌟</div>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '18%',
+            left: '55%',
+            fontSize: '1.3rem',
+            animation: 'star-float-4 8s ease-in-out infinite',
+            opacity: 0.7,
+            userSelect: 'none',
+          }}
+        >✨</div>
+      </div>
 
       {/* Stars background - only in dark mode */}
       {theme === 'dark' && (
@@ -222,29 +390,23 @@ export const MainMenu = ({ onPlay, onSettings }) => {
             display: 'flex',
             flexDirection: 'column',
             gap: '1rem',
-            width: '280px',
+            width: '240px', // Reduced width
           }}>
             <button
               onClick={handlePlay}
               onMouseEnter={() => setButtonHover('play')}
               onMouseLeave={() => setButtonHover(null)}
               style={{
-                padding: '15px 25px',
-                fontSize: '1.2rem',
-                backgroundColor: buttonHover === 'play' 
-                  ? (theme === 'dark' ? '#5be8fa' : '#0098d9') 
-                  : (theme === 'dark' ? '#4bd5ee' : '#0087c6'),
+                padding: '10px 20px', // Reduced padding
+                fontSize: '1rem', // Reduced font size
+                backgroundColor: theme === 'dark' ? '#4bd5ee' : '#0087c6',
                 color: theme === 'dark' ? '#121212' : 'white',
                 border: 'none',
-                borderRadius: '30px',
+                borderRadius: '20px', // Reduced border radius
                 cursor: 'pointer',
                 fontWeight: 'bold',
-                boxShadow: buttonHover === 'play'
-                  ? (theme === 'dark' ? '0 0 15px rgba(75, 213, 238, 0.9)' : '0 0 15px rgba(0, 135, 198, 0.6)')
-                  : (theme === 'dark' ? '0 0 10px rgba(75, 213, 238, 0.5)' : '0 0 10px rgba(0, 135, 198, 0.3)'),
-                transform: buttonHover === 'play' ? 'translateY(-2px)' : 'none',
+                boxShadow: theme === 'dark' ? '0 0 8px rgba(75, 213, 238, 0.5)' : '0 0 8px rgba(0, 135, 198, 0.3)',
                 transition: 'all 0.2s ease-in-out',
-                fontFamily: 'Orbitron, sans-serif',
               }}
             >
               PLAY GAME
@@ -255,20 +417,16 @@ export const MainMenu = ({ onPlay, onSettings }) => {
               onMouseEnter={() => setButtonHover('settings')}
               onMouseLeave={() => setButtonHover(null)}
               style={{
-                padding: '15px 25px',
-                fontSize: '1.2rem',
+                padding: '10px 20px', // Reduced padding
+                fontSize: '1rem', // Reduced font size
                 backgroundColor: 'transparent',
                 color: theme === 'dark' ? '#4bd5ee' : '#0087c6',
                 border: `2px solid ${theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
-                borderRadius: '30px',
+                borderRadius: '20px', // Reduced border radius
                 cursor: 'pointer',
                 fontWeight: 'bold',
-                boxShadow: buttonHover === 'settings'
-                  ? (theme === 'dark' ? '0 0 15px rgba(75, 213, 238, 0.5)' : '0 0 15px rgba(0, 135, 198, 0.3)')
-                  : 'none',
-                transform: buttonHover === 'settings' ? 'translateY(-2px)' : 'none',
+                boxShadow: 'none',
                 transition: 'all 0.2s ease-in-out',
-                fontFamily: 'Orbitron, sans-serif',
               }}
             >
               SETTINGS
@@ -546,7 +704,7 @@ export const MainMenu = ({ onPlay, onSettings }) => {
         color: theme === 'dark' ? '#777' : '#999',
         zIndex: 1,
       }}>
-        &copy; 2023 Type Ship | Made with 💙
+        &copy; 2025 Type Ship | Made with 💙
       </div>
 
       {/* Ship icon */}
@@ -567,9 +725,59 @@ export const MainMenu = ({ onPlay, onSettings }) => {
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@400;700&display=swap');
 
         @keyframes float {
-          0% { transform: translate(0, 0) rotate(-15deg); }
-          50% { transform: translate(-20px, -10px) rotate(-20deg); }
-          100% { transform: translate(0, 0) rotate(-15deg); }
+          0% { transform: translateY(0) rotate(-15deg);}
+          50% { transform: translateY(-18px) rotate(-15deg);}
+          100% { transform: translateY(0) rotate(-15deg);}
+        }
+        @keyframes float2 {
+          0% { transform: translateY(0) rotate(20deg) scaleX(-1);}
+          50% { transform: translateY(-14px) rotate(20deg) scaleX(-1);}
+          100% { transform: translateY(0) rotate(20deg) scaleX(-1);}
+        }
+        @keyframes float3 {
+          0% { transform: translateY(0) rotate(-5deg);}
+          50% { transform: translateY(-10px) rotate(-5deg);}
+          100% { transform: translateY(0) rotate(-5deg);}
+        }
+        @keyframes meteor-float-1 {
+          0% { transform: translateY(0) rotate(-35deg);}
+          50% { transform: translateY(-10px) rotate(-35deg);}
+          100% { transform: translateY(0) rotate(-35deg);}
+        }
+        @keyframes meteor-float-2 {
+          0% { transform: translateY(0) rotate(-25deg);}
+          50% { transform: translateY(-12px) rotate(-25deg);}
+          100% { transform: translateY(0) rotate(-25deg);}
+        }
+        @keyframes meteor-float-3 {
+          0% { transform: translateY(0) rotate(-45deg);}
+          50% { transform: translateY(-8px) rotate(-45deg);}
+          100% { transform: translateY(0) rotate(-45deg);}
+        }
+        @keyframes meteor-float-4 {
+          0% { transform: translateY(0) rotate(-30deg);}
+          50% { transform: translateY(-14px) rotate(-30deg);}
+          100% { transform: translateY(0) rotate(-30deg);}
+        }
+        @keyframes star-float-1 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-6px);}
+          100% { transform: translateY(0);}
+        }
+        @keyframes star-float-2 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-10px);}
+          100% { transform: translateY(0);}
+        }
+        @keyframes star-float-3 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-8px);}
+          100% { transform: translateY(0);}
+        }
+        @keyframes star-float-4 {
+          0% { transform: translateY(0);}
+          50% { transform: translateY(-12px);}
+          100% { transform: translateY(0);}
         }
       `}</style>
     </div>

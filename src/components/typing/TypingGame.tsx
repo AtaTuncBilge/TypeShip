@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import TextDisplay from '../typing/TextDisplay';
 import TypingInput from '../typing/TypingInput';
 import Stats from '../stats/Stats';
-import Settings from '../settings/Settings';
 import { AudioManager } from '../../services/AudioManager';
 import { useGameContext } from '../../context/GameContext';
 import { getRandomText } from '../../utils/TextUtils';
@@ -17,7 +16,7 @@ export const TypingGame: React.FC = () => {
   const [completed, setCompleted] = useState(false);
   const [scoreSaved, setScoreSaved] = useState(false);
 
-  const { settings, showSettings, addScore } = useGameContext();
+  const { settings, addScore } = useGameContext();
   const audioManager = useRef<AudioManager>(new AudioManager());
 
   useEffect(() => {
@@ -87,7 +86,6 @@ export const TypingGame: React.FC = () => {
       borderRadius: '8px',
       transition: 'all 0.3s ease'
     }}>
-      {showSettings && <Settings onClose={undefined} />}
       
       <TextDisplay text={text} userInput={input} />
       
