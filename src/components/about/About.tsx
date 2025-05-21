@@ -6,13 +6,11 @@ interface AboutProps {
 }
 
 const About: React.FC<AboutProps> = ({ onClose }) => {
-  const { settings, audioManager } = useGameContext();
+  const { settings,  } = useGameContext();
   const theme = settings?.theme || 'dark';
 
   const handleClose = () => {
-    if (audioManager) {
-      audioManager.playSound('click');
-    }
+    
     onClose();
   };
 

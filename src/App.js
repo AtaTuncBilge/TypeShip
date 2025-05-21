@@ -3,35 +3,30 @@ import { GameProvider } from './context/GameContext';
 import { GameScreen } from './components/game/GameScreen';
 import { MainMenu } from './components/layout/MainMenu';
 import { SettingsMenu } from './components/settings/SettingsMenu';
-import { AudioManager } from './services/AudioManager';
 import { LoadingScreen } from './components/game/LoadingScreen';
 import { THEME_COLORS } from './utils/constants';
-
-// Initialize audio manager
-const audioManager = new AudioManager();
+import LeaderboardModal from './components/game/LeaderboardModal';
+import GameOverScreen from './components/game/GameOverScreen';
 
 export const App = () => {
   const [gameState, setGameState] = useState('loading'); // loading, menu, settings, playing
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [transition, setTransition] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
-  
   useEffect(() => {
-    
     const loadResources = async () => {
       try {
-        // Start audio initialization
         setLoadingProgress(10);
-        await audioManager.init();
         setLoadingProgress(50);
-        
+
         // Simulate other resource loading with progress updates
         const steps = [60, 70, 80, 90, 100];
         for (const progress of steps) {
           await new Promise(resolve => setTimeout(resolve, 300));
           setLoadingProgress(progress);
         }
-        
+
         // Wait a moment at 100% before showing menu
         setTimeout(() => {
           setTransition(true);
@@ -47,26 +42,14 @@ export const App = () => {
         setTimeout(() => setGameState('menu'), 1000);
       }
     };
-    
+
     loadResources();
   }, []);
 
   // Handle screen transitions with fade effect
   const transitionToScreen = useCallback((newScreen) => {
     setTransition(true);
-    
-    // Play transition sound
-    if (audioManager && gameState !== 'loading') {
-      audioManager.playSound('keypress1');
-    }
-    
-    setTimeout(() => {
-      setGameState(newScreen);
-      setTimeout(() => {
-        setTransition(false);
-      }, 300);
-    }, 300);
-  }, [gameState]);
+  }, []);
 
   // Render different screens based on game state
   const renderScreen = () => {
@@ -77,11 +60,14 @@ export const App = () => {
         return <MainMenu 
           onPlay={() => transitionToScreen('playing')} 
           onSettings={() => transitionToScreen('settings')} 
+          onLeaderboard={() => setShowLeaderboard(true)}
         />;
       case 'settings':
         return <SettingsMenu onBack={() => transitionToScreen('menu')} />;
       case 'playing':
         return <GameScreen onExit={() => transitionToScreen('menu')} />;
+      case 'gameover':
+        return <GameOverScreen onRestart={() => transitionToScreen('playing')} />;
       default:
         return <MainMenu onPlay={() => transitionToScreen('playing')} />;
     }
@@ -89,7 +75,6 @@ export const App = () => {
 
   return (
     <GameProvider 
-      audioManager={audioManager}
       initialSettings={{
         soundEnabled: true,
         volume: 0.7,
@@ -106,6 +91,7 @@ export const App = () => {
         transition: 'opacity 300ms ease-in-out'
       }}>
         {renderScreen()}
+        {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
       </div>
     </GameProvider>
   );
