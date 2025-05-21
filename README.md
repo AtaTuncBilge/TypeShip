@@ -1,58 +1,60 @@
 Type Ship 🚀
 
-A fast and fun typing game with a spaceship vibe!
-Type words to shoot asteroids, get a high score, and see your name on the leaderboard.
-🚀 Features
+Welcome to Type Ship – a fast and fun typing game with a spaceship twist!
+Type words, blast asteroids, and climb the leaderboard. No more boring typing tests. 🚀
+Features
 
-    Space theme & animated UI
+    Space-themed, animated design
 
-    Real-time WPM, accuracy, keystrokes
+    Tracks your WPM, accuracy, keystrokes, and time
 
-    Leaderboard & game stats
+    Online leaderboard (show off your score!)
 
-    Pause & fullscreen
+    Pause, resume, and fullscreen options
 
-🛠️ How to Run
+How to Run
 
-1. Download or clone the repo
+1. Download or clone the repo:
 
-git clone https://github.com/yourusername/typeship.git
+git clone https://github.com/AtaTuncBilge/typeship.git
 cd typeship
 
-2. Install dependencies
+2. Install everything you need:
 
 npm install
 
-3. Start the game (development mode)
+3. Start the game:
 
 npm start
 
-This will open the game in your browser at http://localhost:3000.
-💻 Example Terminal Steps
+That’s it! Your browser should open at http://localhost:3000
+Now you’re ready to type like a spaceship captain. 👨‍🚀
+Terminal Quick Guide
 
-On Windows (with VS Code):
+On Windows (VS Code terminal):
 
-# Open VS Code terminal (CTRL + `)
+# Open terminal with CTRL + `
 cd path\to\the\project
 npm install
 npm start
 
 On Mac/Linux:
 
-# Open a terminal and go to the project folder
 cd path/to/the/project
 npm install
 npm start
 
-❓ FAQ
+FAQ
 
-    If you see any errors about missing packages, just run npm install again.
+    Having problems with missing packages?
+    Just run npm install again.
 
-    To build the project for production:
+    Want to build for production?
 
     npm run build
 
-    Need help? Just open an issue or ask the project owner!
+    Need help?
+    Open an issue here or DM the repo owner.
 
-Enjoy the game! 🚀
-Good luck and high WPMs! 🎮
+Enjoy! 🚀
+Good luck and may your WPM be high!
