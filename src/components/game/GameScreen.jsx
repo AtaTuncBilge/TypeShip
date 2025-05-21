@@ -57,7 +57,7 @@ const calculateLaneHeight = (area, keyboardHeight) => {
   return usableHeight / LANE_COUNT;
 };
 
-export const GameScreen = ({ onExit }) => {
+export const GameScreen = ({ onExit, playerName }) => {
   const { settings = {}, audioManager } = useGameContext();
   const gameContainerRef = useRef(null);
   const inputRef = useRef(null);
@@ -78,6 +78,9 @@ export const GameScreen = ({ onExit }) => {
   const [accuracy, setAccuracy] = useState(100);
   const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
   const [lasers, setLasers] = useState([]); // Keep this and remove totalTypedChars
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [submittingScore, setSubmittingScore] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState(null);
   const gameLoopRef = useRef(null);
   const lastFrameTimeRef = useRef(0);
 
@@ -393,6 +396,33 @@ export const GameScreen = ({ onExit }) => {
     };
   }, []);
 
+  // Oyun sonunda skor gönder ve leaderboard'u çek
+  useEffect(() => {
+    if (!gameOver) return;
+    setSubmittingScore(true);
+    setLeaderboardError(null);
+    const gameDuration = 60; // Süreyi burada ayarla (veya dinamikse state'ten al)
+    console.log("POST edilen playerName:", playerName);
+    fetch('http://localhost:3001/results', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: playerName,
+        time: gameDuration,
+        wpm: wpm,
+        accuracy: accuracy
+      })
+    })
+      .then(() => fetch('http://localhost:3001/results'))
+      .then(res => {
+        if (!res.ok) throw new Error('Network error');
+        return res.json();
+      })
+      .then(data => setLeaderboard(data))
+      .catch(() => setLeaderboardError('Could not load leaderboard.'))
+      .finally(() => setSubmittingScore(false));
+  }, [gameOver, playerName, wpm, accuracy]);
+
   const layoutStyles = {
     container: {
       width: '100%',
@@ -577,6 +607,77 @@ export const GameScreen = ({ onExit }) => {
     </div>
   );
 
+  // Oyun sonu leaderboard kutusu
+  const leaderboardBox = (
+    <div style={{
+      marginTop: '2rem',
+      width: 320,
+      background: settings.theme === 'dark' ? 'rgba(32,41,64,0.95)' : 'rgba(255,255,255,0.98)',
+      color: settings.theme === 'dark' ? '#ffd700' : '#b8860b',
+      borderRadius: 16,
+      boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
+      border: `2px solid ${settings.theme === 'dark' ? '#ffd700' : '#b8860b'}`,
+      zIndex: 20,
+      padding: '18px 16px 12px 16px',
+      fontFamily: 'Orbitron, sans-serif'
+    }}>
+      <div style={{
+        fontWeight: 700,
+        fontSize: '1.2rem',
+        marginBottom: 10,
+        textAlign: 'center',
+        letterSpacing: 1
+      }}>
+        🏆 Leaderboard
+      </div>
+      {submittingScore && (
+        <div style={{ textAlign: 'center', color: '#aaa', fontSize: 14, marginBottom: 8 }}>Updating...</div>
+      )}
+      {leaderboardError && (
+        <div style={{ textAlign: 'center', color: '#ff4444', fontSize: 14, marginBottom: 8 }}>{leaderboardError}</div>
+      )}
+      <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {leaderboard.length === 0 && !submittingScore && !leaderboardError && (
+          <li style={{ textAlign: 'center', color: settings.theme === 'dark' ? '#fff' : '#333', fontSize: 14 }}>
+            No scores yet.
+          </li>
+        )}
+        {leaderboard.slice(0, 5).map((entry, i) => {
+          const isYou = entry.name === playerName && entry.wpm === wpm && entry.accuracy === accuracy;
+          return (
+            <li key={`${entry.name}-${entry.created_at}`} style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '6px 0',
+              borderBottom: i < 4 ? `1px solid ${settings.theme === 'dark' ? '#333' : '#eee'}` : 'none',
+              fontWeight: isYou ? 'bold' : 'normal',
+              color: isYou
+                ? (settings.theme === 'dark' ? '#ffd700' : '#b8860b')
+                : (settings.theme === 'dark' ? '#e0e0e0' : '#333'),
+              background: isYou ? (settings.theme === 'dark' ? 'rgba(255,215,0,0.08)' : 'rgba(184,134,11,0.08)') : 'none',
+              borderRadius: isYou ? 8 : 0,
+              fontSize: isYou ? '1.08rem' : '1rem'
+            }}>
+              <span>{i + 1}.</span>
+              <span style={{ flex: 1, textAlign: 'left', marginLeft: 8 }}>{entry.name}</span>
+              <span style={{ marginLeft: 8 }}>{entry.wpm}</span>
+              <span style={{ marginLeft: 8 }}>{entry.accuracy}%</span>
+              <span style={{ marginLeft: 8 }}>{formatDate(entry.created_at)}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+
+  // Tarih formatlayıcı
+  function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
   // Clean up the return statement to use single header
   return (
     <div ref={gameContainerRef} style={{
@@ -631,6 +732,7 @@ export const GameScreen = ({ onExit }) => {
             overflow: 'hidden',
           }}
         >
+          {/* ...gameLayout... */}
           {gameLayout}
         </div>
 
@@ -700,7 +802,8 @@ export const GameScreen = ({ onExit }) => {
             zIndex: 100,
           }}>
             {gameOverStats}
-            <div style={{ display: 'flex', gap: '15px' }}>
+            {leaderboardBox}
+            <div style={{ display: 'flex', gap: '15px', marginTop: '2rem' }}>
               <button
                 onClick={startGame}
                 style={{

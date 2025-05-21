@@ -1,10 +1,11 @@
-import React from 'react';
-import { useGameContext } from 'GameContext';
-import PlayerNameInput from 'PlayerNameInput';
+import React, { useState } from 'react';
+import { useGameContext } from '../../context/GameContext';
 
 export const Settings = ({ onClose }) => {
-  const { settings, updateSettings } = useGameContext();
+  const { settings } = useGameContext();
   const playerName = localStorage.getItem('typingGamePlayerName');
+  const [name, setName] = useState(playerName || '');
+  const [nameSaved, setNameSaved] = useState(false);
 
   // Only show settings if player name exists
   if (!playerName) {
@@ -13,15 +14,17 @@ export const Settings = ({ onClose }) => {
   }
 
   const { 
-    soundEnabled, toggleSound, 
-    volume, setVolume,
     theme, toggleTheme,
     toggleSettings,
     showAds, toggleAds
   } = settings;
-  
-  const handleVolumeChange = (value) => {
-    updateSettings({ volume: value });
+
+  const handleNameSave = () => {
+    if (name.trim().length >= 3) {
+      localStorage.setItem('typingGamePlayerName', name.trim());
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 2000);
+    }
   };
 
   return (
@@ -39,33 +42,7 @@ export const Settings = ({ onClose }) => {
     }}>
       <h3 style={{ marginTop: 0 }}>Game Settings</h3>
       
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'flex', alignItems: 'center' }}>
-          <input 
-            type="checkbox" 
-            checked={soundEnabled} 
-            onChange={toggleSound}
-            style={{ marginRight: '10px' }}
-          />
-          Sound Effects
-        </label>
-      </div>
-      
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', marginBottom: '5px' }}>
-          Volume: {Math.round(volume * 100)}%
-        </label>
-        <input 
-          type="range" 
-          min="0" 
-          max="1" 
-          step="0.1" 
-          value={volume} 
-          onChange={(e) => setVolume(parseFloat(e.target.value))}
-          style={{ width: '100%' }}
-        />
-      </div>
-      
+      {/* Remove sound and volume settings */}
       <div style={{ marginBottom: '15px' }}>
         <label style={{ display: 'flex', alignItems: 'center' }}>
           <input 
@@ -91,7 +68,53 @@ export const Settings = ({ onClose }) => {
       </div>
       
       {/* Player Name Input Component */}
-      <PlayerNameInput />
+      <div style={{ marginBottom: '15px' }}>
+        <label style={{ display: 'block', marginBottom: '5px' }}>
+          Change Leaderboard Name:
+        </label>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Enter your name"
+            maxLength={15}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: '4px',
+              border: `1px solid ${theme === 'light' ? '#ddd' : '#444'}`,
+              backgroundColor: theme === 'light' ? '#fff' : '#333',
+              color: theme === 'light' ? '#333' : '#f1f1f1',
+              fontSize: '0.9rem'
+            }}
+          />
+          <button
+            onClick={handleNameSave}
+            disabled={name.trim().length < 3}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: name.trim().length < 3 ? '#aaa' : (theme === 'light' ? '#007bff' : '#4bd5ee'),
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: name.trim().length < 3 ? 'not-allowed' : 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            Save
+          </button>
+        </div>
+        {nameSaved && (
+          <div style={{
+            marginTop: '8px',
+            color: theme === 'light' ? '#007bff' : '#4bd5ee',
+            fontSize: '0.9rem'
+          }}>
+            Name changed!
+          </div>
+        )}
+      </div>
       
       <button 
         onClick={toggleSettings}

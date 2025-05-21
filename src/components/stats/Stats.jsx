@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGameContext } from 'GameContext';
+import { useGameContext } from '../../context/GameContext';
 
 const Stats = ({ wpm, accuracy }) => {
   const { theme, toggleSettings } = useGameContext();

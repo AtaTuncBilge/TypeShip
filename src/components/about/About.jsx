@@ -33,11 +33,8 @@ const About = ({ onClose }) => {
           time.
         </p>
         <br/>
-        <p>
-          Your mission is to protect your spaceship by typing incoming words before
-          they reach you. As you progress, you'll face increasingly challenging
-          scenarios that will help improve your typing abilities.
-        </p>
+       
+        
       </div>
 
       <div style={{ marginBottom: '30px' }}>
@@ -46,8 +43,6 @@ const About = ({ onClose }) => {
           {[
             'Multi-lane word targeting system',
             'Real-time WPM tracking',
-            'Dynamic difficulty adjustment',
-            'Immersive sound effects',
             'Customizable themes',
             'Global leaderboard'
           ].map(feature => (

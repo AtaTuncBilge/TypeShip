@@ -10,6 +10,10 @@ export const MainMenu = ({ onPlay, onSettings }) => {
   const [isSaved, setIsSaved] = useState(true);
   const [showAbout, setShowAbout] = useState(false); // New state for About component
   const [showMore, setShowMore] = useState(false); // New state for More options
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState(null);
 
   useEffect(() => {
     // Load saved player name
@@ -20,15 +24,30 @@ export const MainMenu = ({ onPlay, onSettings }) => {
     }
   }, []);
 
+  useEffect(() => {
+    if (showLeaderboard) {
+      setLoadingLeaderboard(true);
+      setLeaderboardError(null);
+      fetch('http://localhost:3001/results')
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch leaderboard');
+          return res.json();
+        })
+        .then(data => setLeaderboard(data))
+        .catch(err => setLeaderboardError('Could not load leaderboard.'))
+        .finally(() => setLoadingLeaderboard(false));
+    }
+  }, [showLeaderboard]);
+
   const theme = settings?.theme || 'dark';
 
   const handlePlay = () => {
     // Only allow play if name is at least 3 characters and saved
     if (playerName.trim().length >= 3 && isSaved) {
       if (audioManager) {
-        audioManager.playSound('hit'); // replaced 'click'
+        audioManager.playSound('hit');
       }
-      onPlay();
+      onPlay(playerName.trim()); // playerName'i gönder
     }
   };
 
@@ -255,6 +274,32 @@ export const MainMenu = ({ onPlay, onSettings }) => {
               SETTINGS
             </button>
 
+            {/* Leaderboard button */}
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              onMouseEnter={() => setButtonHover('leaderboard')}
+              onMouseLeave={() => setButtonHover(null)}
+              style={{
+                padding: '15px 25px',
+                fontSize: '1.2rem',
+                backgroundColor: 'transparent',
+                color: theme === 'dark' ? '#ffd700' : '#b8860b',
+                border: `2px solid ${theme === 'dark' ? '#ffd700' : '#b8860b'}`,
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                boxShadow: buttonHover === 'leaderboard'
+                  ? (theme === 'dark' ? '0 0 15px rgba(255, 215, 0, 0.7)' : '0 0 15px rgba(184, 134, 11, 0.5)')
+                  : 'none',
+                transform: buttonHover === 'leaderboard' ? 'translateY(-2px)' : 'none',
+                transition: 'all 0.2s ease-in-out',
+                fontFamily: 'Orbitron, sans-serif',
+                marginBottom: '0.5rem'
+              }}
+            >
+              🏆 LEADERBOARD
+            </button>
+
             {/* Add MORE button */}
             <button
               onClick={() => handleButtonClick('more')}
@@ -333,6 +378,162 @@ export const MainMenu = ({ onPlay, onSettings }) => {
           </div>
         )}
 
+        {/* Leaderboard Modal */}
+        {showLeaderboard && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, width: '100vw', height: '100vh',
+            background: theme === 'dark'
+              ? 'linear-gradient(135deg, #0a0f1a 0%, #10131a 100%)'
+              : 'linear-gradient(135deg, #f8f9fa 0%, #e2e2e2 100%)',
+            backgroundBlendMode: 'multiply',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'auto'
+          }}>
+            <div style={{
+              background: theme === 'dark' ? '#181d26' : '#fff',
+              color: theme === 'dark' ? '#e0e0e0' : '#222',
+              borderRadius: '24px',
+              boxShadow: theme === 'dark'
+                ? '0 8px 40px 0 #000a, 0 1.5px 8px 0 #4bd5ee33'
+                : '0 8px 40px 0 #0002',
+              padding: '40px 32px 32px 32px',
+              minWidth: '340px',
+              maxWidth: '95vw',
+              width: '440px',
+              position: 'relative',
+              border: `2px solid ${theme === 'dark' ? '#232b3b' : '#e0e0e0'}`,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}>
+              <h2 style={{
+                color: theme === 'dark' ? '#4bd5ee' : '#0087c6',
+                fontSize: '2.1rem',
+                marginBottom: '18px',
+                letterSpacing: '2px',
+                fontWeight: 700,
+                textShadow: theme === 'dark'
+                  ? '0 0 12px #4bd5ee99'
+                  : '0 0 10px #0087c699'
+              }}>
+                🏆 Leaderboard
+              </h2>
+              {loadingLeaderboard && <div style={{textAlign:'center', color:theme==='dark'?'#fff':'#333'}}>Loading...</div>}
+              {leaderboardError && <div style={{color:'#ff4444', textAlign:'center'}}>{leaderboardError}</div>}
+              {!loadingLeaderboard && !leaderboardError && (
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'separate',
+                  borderSpacing: 0,
+                  background: 'none',
+                  marginBottom: '18px'
+                }}>
+                  <thead>
+                    <tr style={{ color: theme === 'dark' ? '#4bd5ee' : '#0087c6', fontWeight: 700, fontSize: '1.1rem' }}>
+                      <th style={{ padding: '8px 0', textAlign: 'left' }}>#</th>
+                      <th style={{ padding: '8px 0', textAlign: 'left' }}>Name</th>
+                      <th style={{ padding: '8px 0', textAlign: 'center' }}>WPM</th>
+                      <th style={{ padding: '8px 0', textAlign: 'center' }}>Accuracy</th>
+                      <th style={{ padding: '8px 0', textAlign: 'center' }}>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={{
+                          textAlign: 'center',
+                          color: theme === 'dark' ? '#e0e0e0' : '#333',
+                          padding: '24px 0',
+                          fontStyle: 'italic'
+                        }}>
+                          No scores yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      leaderboard.map((entry, i) => {
+                        const isYou = entry.name === playerName;
+                        return (
+                          <tr key={`${entry.name}-${entry.created_at}`}
+                            style={{
+                              background: isYou
+                                ? (theme === 'dark' ? '#4bd5ee22' : '#0087c622')
+                                : (i % 2 === 0
+                                  ? (theme === 'dark' ? '#232b3b44' : '#f5f5f5')
+                                  : 'transparent'),
+                              color: isYou
+                                ? (theme === 'dark' ? '#4bd5ee' : '#0087c6')
+                                : (theme === 'dark' ? '#e0e0e0' : '#333'),
+                              fontWeight: isYou ? 700 : (i === 0 ? 600 : 400),
+                              fontSize: isYou || i === 0 ? '1.08rem' : '1rem',
+                              borderRadius: isYou ? 8 : 0
+                            }}>
+                            <td style={{
+                              padding: '10px 0',
+                              textAlign: 'left',
+                              color: isYou ? (theme === 'dark' ? '#4bd5ee' : '#0087c6') : (i === 0 ? '#ffd700' : undefined)
+                            }}>{i + 1}</td>
+                            <td style={{
+                              padding: '10px 0',
+                              textAlign: 'left'
+                            }}>{entry.name}</td>
+                            <td style={{
+                              padding: '10px 0',
+                              textAlign: 'center'
+                            }}>{entry.wpm}</td>
+                            <td style={{
+                              padding: '10px 0',
+                              textAlign: 'center'
+                            }}>{entry.accuracy}%</td>
+                            <td style={{
+                              padding: '10px 0',
+                              textAlign: 'center'
+                            }}>{formatDate(entry.created_at)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
+              <button
+                onClick={() => setShowLeaderboard(false)}
+                style={{
+                  marginTop: '10px',
+                  padding: '12px 32px',
+                  background: `linear-gradient(90deg, ${theme === 'dark' ? '#4bd5ee' : '#0087c6'} 0%, ${theme === 'dark' ? '#232b3b' : '#e8f5ff'} 100%)`,
+                  color: theme === 'dark' ? '#181d26' : '#fff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  boxShadow: theme === 'dark'
+                    ? '0 0 18px #4bd5ee55'
+                    : '0 0 10px #0087c655',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Close
+              </button>
+              <span style={{
+                position: 'absolute',
+                top: '18px',
+                right: '24px',
+                fontSize: '1.5rem',
+                color: theme === 'dark' ? '#4bd5ee' : '#0087c6',
+                cursor: 'pointer',
+                fontWeight: 700,
+                background: 'none',
+                border: 'none'
+              }} onClick={() => setShowLeaderboard(false)}>×</span>
+            </div>
+          </div>
+        )}
+
         {/* Render About component if showAbout is true */}
         {showAbout && <About onClose={() => setShowAbout(false)} />}
       </div>
@@ -374,3 +575,10 @@ export const MainMenu = ({ onPlay, onSettings }) => {
     </div>
   );
 };
+
+// Yardımcı fonksiyon
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}

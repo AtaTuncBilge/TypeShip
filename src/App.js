@@ -13,6 +13,7 @@ export const App = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [transition, setTransition] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem('typingGamePlayerName') || '');
 
   useEffect(() => {
     const loadResources = async () => {
@@ -49,6 +50,10 @@ export const App = () => {
   // Handle screen transitions with fade effect
   const transitionToScreen = useCallback((newScreen) => {
     setTransition(true);
+    setTimeout(() => {
+      setGameState(newScreen);
+      setTransition(false);
+    }, 300); // Geçiş süresi (ms)
   }, []);
 
   // Render different screens based on game state
@@ -58,14 +63,17 @@ export const App = () => {
         return <LoadingScreen progress={loadingProgress} />;
       case 'menu':
         return <MainMenu 
-          onPlay={() => transitionToScreen('playing')} 
+          onPlay={(name) => {
+            setPlayerName(name);
+            transitionToScreen('playing');
+          }} 
           onSettings={() => transitionToScreen('settings')} 
           onLeaderboard={() => setShowLeaderboard(true)}
         />;
       case 'settings':
         return <SettingsMenu onBack={() => transitionToScreen('menu')} />;
       case 'playing':
-        return <GameScreen onExit={() => transitionToScreen('menu')} />;
+        return <GameScreen onExit={() => transitionToScreen('menu')} playerName={playerName} />;
       case 'gameover':
         return <GameOverScreen onRestart={() => transitionToScreen('playing')} />;
       default:

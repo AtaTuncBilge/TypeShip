@@ -1,24 +1,24 @@
 import React, { useState } from 'react';
-import { useGameContext } from 'GameContext';
+import { useGameContext } from '../../context/GameContext';
 
 const Leaderboard = ({ currentWpm, currentAccuracy }) => {
   const { settings, leaderboard } = useGameContext();
   const { theme, colors } = settings;
   const currentTheme = theme === 'light' ? colors.light : colors.dark;
   const [sortBy, setSortBy] = useState('wpm'); // Default sort by WPM
-  
+
   // Sort the leaderboard based on the selected criteria
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
     if (sortBy === 'wpm') return b.wpm - a.wpm;
     if (sortBy === 'accuracy') return b.accuracy - a.accuracy;
-    if (sortBy === 'date') return new Date(b.date) - new Date(a.date);
+    if (sortBy === 'date') return new Date(b.created_at) - new Date(a.created_at);
     return 0;
   });
 
   const handleSortChange = (criteria) => {
     setSortBy(criteria);
   };
-  
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -99,7 +99,7 @@ const Leaderboard = ({ currentWpm, currentAccuracy }) => {
         {sortedLeaderboard.length > 0 ? (
           sortedLeaderboard.map((entry, index) => (
             <div 
-              key={`${entry.playerName}-${entry.date}`}
+              key={`${entry.name}-${entry.created_at}`}
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -120,7 +120,7 @@ const Leaderboard = ({ currentWpm, currentAccuracy }) => {
                 fontWeight: entry.highlight ? '700' : '400',
                 color: entry.highlight ? colors.primary : currentTheme.text
               }}>
-                {entry.playerName}
+                {entry.name}
               </span>
               <span style={{ 
                 width: '20%', 
@@ -143,7 +143,7 @@ const Leaderboard = ({ currentWpm, currentAccuracy }) => {
                 fontSize: '0.9rem',
                 color: sortBy === 'date' ? colors.primary : currentTheme.neutral
               }}>
-                {formatDate(entry.date)}
+                {formatDate(entry.created_at)}
               </span>
             </div>
           ))
