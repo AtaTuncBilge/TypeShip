@@ -1,1295 +1,1024 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
-import VirtualKeyboard from './VirtualKeyboard';
-import { WORD_LIST } from '../../constants/wordList';
+import { readLeaderboard, saveScoreToLeaderboard } from '../../utils/localLeaderboard';
+import {
+  DEFAULT_CONTEXT_ID,
+  getLanguageById,
+  getTypingPool,
+  normalizeTypedValue,
+  TYPING_CONTEXTS,
+} from '../../constants/typingCatalog';
+import { ExplosionBurst, MeteorSprite, ShipSprite, SpaceBackdrop, resolveDifficulty } from './SpaceDecor';
+import TypingToolbar from './TypingToolbar';
 
-// Update constants
-const KEYBOARD_HEIGHT = 250;
-const WORD_SPEED = 3.5; // Increased speed for faster movement
-const WORD_SPACING = 400;
-const LANE_COUNT = 3;
+const MAX_FRAME_MS = 42;
 
-// Enhanced StatBox component for better visualization
-const StatBox = ({ label, value, theme }) => (
-  <div className="stat-box" style={{
-    padding: '8px 15px',
-    backgroundColor: theme === 'dark' ? 'rgba(75, 213, 238, 0.15)' : 'rgba(0, 135, 198, 0.1)',
-    borderRadius: '12px',
-    border: `1px solid ${theme === 'dark' ? 'rgba(75, 213, 238, 0.3)' : 'rgba(0, 135, 198, 0.2)'}`,
-    backdropFilter: 'blur(5px)',
-  }}>
-    <div style={{ fontSize: '12px', opacity: 0.8 }}>{label}</div>
-    <div style={{ 
-      fontSize: '18px', 
-      fontWeight: 'bold',
-      color: theme === 'dark' ? '#4bd5ee' : '#0087c6' 
-    }}>{value}</div>
-  </div>
-);
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const randomBetween = (min, max) => min + Math.random() * (max - min);
+const uid = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const calculateWpm = (correctChars, elapsedMs) => {
+  if (!elapsedMs) return 0;
+  const words = correctChars / 5;
+  const elapsedMinutes = elapsedMs / 60000;
+  return Math.max(0, Math.round(words / elapsedMinutes));
+};
+const calculateAccuracy = (keystrokes, correctChars) => (keystrokes > 0 ? Math.round((correctChars / keystrokes) * 100) : 100);
+const getShipPoint = (arenaSize) => ({
+  x: arenaSize.width < 680 ? 108 : 146,
+  y: arenaSize.height * 0.54,
+});
 
-// Update SpaceshipEmoji component
-const SpaceshipEmoji = ({ theme }) => (
-  <div style={{
-    fontSize: '45px',
-    filter: `drop-shadow(0 0 8px ${theme === 'dark' ? '#4bd5ee' : '#0087c6'})`,
-    animation: 'floatShip 3s ease-in-out infinite',
-    transform: 'rotate(45deg)', // Changed from 90deg to 45deg for better orientation
-    willChange: 'transform',
-    opacity: 0.9,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '60px',
-    height: '60px'
-  }}>
-    🚀
-  </div>
-);
+const getMeteorLaneCenters = (arenaSize) => {
+  const topPadding = arenaSize.height < 700 ? 94 : 118;
+  const bottomPadding = arenaSize.width < 680
+    ? Math.max(228, arenaSize.height * 0.29)
+    : Math.max(214, arenaSize.height * 0.25);
+  const laneCount = arenaSize.height < 640 ? 3 : arenaSize.height < 900 ? 4 : 5;
+  const usableHeight = Math.max(180, arenaSize.height - topPadding - bottomPadding);
 
-// Replace random word generation with word list selection
-const getRandomWord = () => {
-  return WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
+  return Array.from({ length: laneCount }, (_, index) => topPadding + (usableHeight * (index + 0.5)) / laneCount);
 };
 
-const calculateLaneHeight = (area, keyboardHeight) => {
-  if (!area) return 0;
-  const usableHeight = area.clientHeight - keyboardHeight;
-  return usableHeight / LANE_COUNT;
+const getTimeToImpact = (meteor) => {
+  const remainingDistance = Math.hypot(meteor.impactX - meteor.x, meteor.impactY - meteor.y);
+  const speed = Math.max(24, Math.hypot(meteor.vx, meteor.vy));
+  return remainingDistance / speed;
+};
+
+const pickTargetMeteor = (meteors, firstChar) => {
+  const matches = meteors.filter((meteor) => meteor.text.startsWith(firstChar));
+  if (!matches.length) return null;
+
+  return matches.sort((a, b) => getTimeToImpact(a) - getTimeToImpact(b) || a.y - b.y)[0];
+};
+
+const formatEta = (meteor) => `${Math.max(0.2, getTimeToImpact(meteor)).toFixed(1)}s`;
+const graphemeSegmenter = typeof Intl !== 'undefined' && Intl.Segmenter
+  ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  : null;
+
+const splitGraphemes = (value) => {
+  const normalized = String(value || '').normalize('NFC');
+  if (!graphemeSegmenter) {
+    return Array.from(normalized);
+  }
+
+  return Array.from(graphemeSegmenter.segment(normalized), ({ segment }) => segment);
+};
+
+const formatWordLabel = (value, locale) => {
+  if (!value) return '';
+  return locale ? value.toLocaleUpperCase(locale) : value.toLocaleUpperCase();
 };
 
 export const GameScreen = ({ onExit, playerName }) => {
   const { settings = {}, audioManager } = useGameContext();
-  const gameContainerRef = useRef(null);
+  const profile = useMemo(() => resolveDifficulty(), []);
+  const activeLanguage = useMemo(() => getLanguageById(settings?.language), [settings?.language]);
+  const activeContext = useMemo(
+    () => TYPING_CONTEXTS.find((context) => context.id === settings?.typingContext) || TYPING_CONTEXTS.find((context) => context.id === DEFAULT_CONTEXT_ID),
+    [settings?.typingContext],
+  );
+  const candidateWords = useMemo(
+    () => getTypingPool(activeLanguage.id, activeContext?.id || DEFAULT_CONTEXT_ID)
+      .map((word) => normalizeTypedValue(word, activeLanguage.id))
+      .filter((word) => word.length >= profile.minTokenLength && word.length <= profile.maxTokenLength),
+    [activeContext?.id, activeLanguage.id, profile.maxTokenLength, profile.minTokenLength],
+  );
+
+  const arenaRef = useRef(null);
   const inputRef = useRef(null);
-  const gameAreaRef = useRef(null);
-  const shipRef = useRef(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  
-  // Remove unused state variables
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [isGameActive, setIsGameActive] = useState(false);
-  const [correctChars, setCorrectChars] = useState(0);
-  const [wpm, setWpm] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
+  const frameRef = useRef(0);
+  const nextSpawnRef = useRef(0);
+  const lastFrameRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const pauseStartedAtRef = useRef(0);
+  const pausedDurationRef = useRef(0);
+  const finishGuardRef = useRef(false);
+  const hitTimeoutRef = useRef(0);
+  const statusTimeoutRef = useRef(0);
+  const recentClearsRef = useRef([]);
+
+  const arenaSizeRef = useRef({ width: window.innerWidth, height: window.innerHeight });
+  const meteorsRef = useRef([]);
+  const lasersRef = useRef([]);
+  const explosionsRef = useRef([]);
+  const typedRef = useRef('');
+  const targetRef = useRef(null);
+  const statsRef = useRef({ keystrokes: 0, correctChars: 0 });
+  const streakRef = useRef(0);
+  const bestStreakRef = useRef(0);
+  const hullRef = useRef(profile.hull);
+  const destroyedRef = useRef(0);
+  const accuracyRef = useRef(100);
+  const wpmRef = useRef(0);
+
+  const [arenaSize, setArenaSize] = useState(arenaSizeRef.current);
+  const [meteors, setMeteors] = useState([]);
+  const [lasers, setLasers] = useState([]);
+  const [explosions, setExplosions] = useState([]);
   const [typed, setTyped] = useState('');
-  const [lastKeyPressed, setLastKeyPressed] = useState('');
-  const [lanes, setLanes] = useState([[], [], []]);
-  const [keystrokes, setKeystrokes] = useState(0);
-  const [accuracy, setAccuracy] = useState(100);
-  const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
-  const [lasers, setLasers] = useState([]); // Keep this and remove totalTypedChars
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [submittingScore, setSubmittingScore] = useState(false);
-  const [leaderboardError, setLeaderboardError] = useState(null);
-  const gameLoopRef = useRef(null);
-  const lastFrameTimeRef = useRef(0);
-
-  // Add pause state
+  const [activeTargetId, setActiveTargetId] = useState(null);
+  const [inputError, setInputError] = useState(false);
+  const [isGameActive, setIsGameActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [gameOverReason, setGameOverReason] = useState('Mission complete');
+  const [timeLeft, setTimeLeft] = useState(profile.sessionSeconds);
+  const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [hull, setHull] = useState(profile.hull);
+  const [destroyed, setDestroyed] = useState(0);
+  const [accuracy, setAccuracy] = useState(100);
+  const [wpm, setWpm] = useState(0);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [shipHitFlash, setShipHitFlash] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Focus the field and start typing to lock the closest meteor.');
 
-  // ESC ile pause toggle
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isGameActive && !gameOver) {
-        setIsPaused(prev => !prev);
-        if (settings.soundEnabled && audioManager) {
-          audioManager.playSound('hit');
+  const shipPoint = useMemo(() => getShipPoint(arenaSize), [arenaSize]);
+
+  const syncArenaSize = useCallback(() => {
+    const nextSize = arenaRef.current
+      ? {
+          width: arenaRef.current.clientWidth,
+          height: arenaRef.current.clientHeight,
         }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGameActive, gameOver, settings.soundEnabled, audioManager]);
+      : { width: window.innerWidth, height: window.innerHeight };
 
-  // Pause/resume fonksiyonu
-  const handlePauseToggle = () => {
-    setIsPaused(prev => !prev);
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('hit');
-    }
-  };
-
-  // Move generateWord function definition before it's used
-  const generateWord = useCallback((area, laneIndex, laneWords = []) => {
-    if (!area) return null;
-    const laneHeight = calculateLaneHeight(area, KEYBOARD_HEIGHT);
-    const baseY = (laneHeight * laneIndex) + (laneHeight / 2);
-
-    // Estimate word width for spacing
-    const getWordWidth = w => (w.word.length * 15) + 30;
-    let x = area.clientWidth; // Start at the right edge of the screen
-
-    // Find the last word in the lane
-    const lastWord = [...laneWords].reverse().find(w => !w.matched && !w.faded);
-    if (lastWord) {
-      x = Math.max(area.clientWidth, lastWord.x + getWordWidth(lastWord) + WORD_SPACING); // Ensure consistent spacing
-    }
-
-    // Generate a word
-    const wordObj = {
-      id: Math.random().toString(36).substr(2, 9),
-      word: getRandomWord(),
-      x,
-      y: baseY - 15, // Center the word vertically in the lane
-      speed: WORD_SPEED,
-      lane: laneIndex,
-      matched: false
-    };
-
-    return wordObj;
+    arenaSizeRef.current = nextSize;
+    setArenaSize(nextSize);
   }, []);
 
-  // --- Helper to check for word collision in a lane (use word width estimation) ---
-  function isColliding(newWord, lane, minDistance = 160) {
-    // Estimate word width based on character count (monospace, ~15px per char + padding)
-    const getWordWidth = w => (w.word.length * 15) + 30;
-    return lane.some(word =>
-      !word.matched && !word.faded &&
-      Math.abs(word.x - newWord.x) < ((getWordWidth(word) + getWordWidth(newWord)) / 2 + minDistance)
-    );
-  }
+  const getElapsedMs = useCallback(
+    (now = performance.now()) => {
+      if (!startTimeRef.current) return 0;
+      const activePause = isPaused && pauseStartedAtRef.current ? now - pauseStartedAtRef.current : 0;
+      return Math.max(0, now - startTimeRef.current - pausedDurationRef.current - activePause);
+    },
+    [isPaused],
+  );
 
-  // --- Update gameLoop to use collision-aware word generation with width ---
-  const gameLoop = useCallback((timestamp) => {
-    if (!isGameActive || gameOver || isPaused) return;
+  const syncStats = useCallback(
+    (now = performance.now()) => {
+      const elapsedMs = getElapsedMs(now);
+      const nextAccuracy = calculateAccuracy(statsRef.current.keystrokes, statsRef.current.correctChars);
+      const nextWpm = calculateWpm(statsRef.current.correctChars, elapsedMs);
 
-    const deltaTime = timestamp - lastFrameTimeRef.current;
-    if (deltaTime < 16) {
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
-      return;
-    }
-
-    lastFrameTimeRef.current = timestamp;
-
-    setLanes(prevLanes => {
-      const updatedLanes = prevLanes.map((lane, index) => {
-        // Move words and handle fade
-        const movedLane = lane.map(word => {
-          const newX = word.x - WORD_SPEED;
-          if (!word.matched && newX < -180 && !word.faded) {
-            return { ...word, x: newX, faded: true };
-          }
-          if (word.faded) {
-            return { ...word, x: newX };
-          }
-          return { ...word, x: newX };
-        }).filter(word => {
-          if (word.faded && word.x < -250) return false;
-          if (word.matched) return false;
-          return true;
-        });
-
-        // Add new word if needed, ensuring alignment
-        const getWordWidth = w => (w.word.length * 15) + 30;
-        const lastWord = movedLane.length > 0 ? movedLane[movedLane.length - 1] : null;
-        if (
-          !lastWord ||
-          lastWord.x < gameAreaRef.current.clientWidth - (getWordWidth(lastWord) + WORD_SPACING)
-        ) {
-          const newWord = generateWord(gameAreaRef.current, index, movedLane);
-          if (newWord && !isColliding(newWord, movedLane, 40)) {
-            movedLane.push(newWord);
-          }
-        }
-        return movedLane;
-      });
-
-      return updatedLanes;
-    });
-
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [isGameActive, gameOver, isPaused, generateWord]);
-
-  // Move handleGameOver inside useEffect to avoid dependency issue
-  useEffect(() => {
-    if (!isGameActive || timeLeft <= 0) return;
-
-    const handleGameOver = () => {
-      setGameOver(true);
-      setIsGameActive(false);
-    };
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          handleGameOver();
-          clearInterval(timer);
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isGameActive, timeLeft]);
-
-  // Correct WPM calculation function
-  const calculateWPM = () => {
-    const timeElapsed = (60 - timeLeft) / 60; // Time elapsed in minutes
-    if (timeElapsed <= 0) return 0;
-    return Math.round((correctChars / 5) / timeElapsed);
-  };
-
-  // Explosion effect creation function        
-  const createExplosion = (x, y, color) => {
-    if (!gameAreaRef.current) return;
-
-    const particles = 12;
-    const area = gameAreaRef.current;
-
-    for (let i = 0; i < particles; i++) {
-      const particle = document.createElement('div');
-      const angle = (i / particles) * Math.PI * 2;
-      const velocity = 3;
-      
-      particle.style.cssText = `
-        position: absolute;
-        left: ${x}px;
-        top: ${y}px;
-        width: 4px;
-        height: 4px;
-        background: ${color};
-        border-radius: 50%;
-        pointer-events: none;
-        opacity: 1;
-        box-shadow: 0 0 10px ${color};
-        transition: all 0.5s ease-out;
-      `;
-
-      area.appendChild(particle);
-
-      // Particle animation
-      requestAnimationFrame(() => {
-        particle.style.transform = `translate(
-          ${Math.cos(angle) * 50 * velocity}px,
-          ${Math.sin(angle) * 50 * velocity}px
-        )`;
-        particle.style.opacity = '0';
-      });
-
-      // Clean up particle
-      setTimeout(() => particle.remove(), 500);
-    }
-  };
-
-  // Add handleButtonClick function
-  const handleButtonClick = () => {
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('hit'); // replaced 'click'
-    }
-  };
-
-  // Function to handle word completion
-  const handleWordComplete = (wordObj) => {
-    // Play hit sound for word completion
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('hit');
-    }
-
-    // Add laser effect
-    const shipPos = shipRef.current.getBoundingClientRect();
-    const laserStart = {
-      x: shipPos.left + shipPos.width / 2,
-      y: shipPos.top + shipPos.height / 2
-    };
-
-    const laserEnd = {
-      x: wordObj.x,
-      y: wordObj.y
-    };
-
-    setLasers(prev => [...prev, {
-      id: Date.now(),
-      start: laserStart,
-      end: laserEnd
-    }]);
-
-    const color = settings.theme === 'dark' ? '#4bd5ee' : '#0087c6';
-    createExplosion(wordObj.x + 20, wordObj.y + 10, color);
-    setCorrectChars(prev => prev + wordObj.word.length);
-    setWpm(calculateWPM());
-  };
-
-  useEffect(() => {
-    if (isGameActive && !gameOver) {
-      // Initialize lanes with words when game starts
-      const initializeLanes = () => {
-        setLanes(prevLanes => {
-          const newLanes = [...prevLanes];
-          for (let i = 0; i < LANE_COUNT; i++) {
-            if (newLanes[i].length === 0) {
-              const newWord = generateWord(gameAreaRef.current, i);
-              if (newWord) {
-                newLanes[i] = [newWord];
-              }
-            }
-          }
-          return newLanes;
-        });
-      };
-
-      initializeLanes();
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }
-    return () => {
-      if (gameLoopRef.current) {
-        cancelAnimationFrame(gameLoopRef.current);
+      if (nextAccuracy !== accuracyRef.current) {
+        accuracyRef.current = nextAccuracy;
+        setAccuracy(nextAccuracy);
       }
-    };
-  }, [isGameActive, gameOver, gameLoop, generateWord]);
 
-  // Optimize word rendering with memoization
-  // --- Replace renderWord with fade in/out animation and non-typeable after fade out ---
-  const renderWord = useCallback((wordObj) => {
-    const { word, x, y, matched } = wordObj; // removed faded
+      if (nextWpm !== wpmRef.current) {
+        wpmRef.current = nextWpm;
+        setWpm(nextWpm);
+      }
+    },
+    [getElapsedMs],
+  );
 
-    // Fade out if word is out of screen or matched
-    const isFadingOut = matched || x < -180;
+  const showStatus = useCallback((message) => {
+    if (!message) return;
+    setStatusMessage(message);
+    window.clearTimeout(statusTimeoutRef.current);
+    statusTimeoutRef.current = window.setTimeout(() => {
+      setStatusMessage('Tab clears the current lock. Esc pauses the run.');
+    }, 1800);
+  }, []);
 
-    return (
-      <div
-        key={wordObj.id}
-        className={`word-container${isFadingOut ? ' word-fade-out' : ' word-fade-in'}`}
-        style={{
-          position: 'absolute',
-          left: `${x}px`,
-          top: `${y}px`,
-          fontSize: '26px',
-          fontFamily: 'JetBrains Mono, monospace',
-          color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-          textShadow: `0 0 10px ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.5)' : 'rgba(0, 135, 198, 0.3)'}`,
-          letterSpacing: '1px',
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
-          transform: 'translateZ(0)',
-          opacity: isFadingOut ? 0 : 1,
-          pointerEvents: isFadingOut ? 'none' : 'auto',
-          transition: 'opacity 0.45s cubic-bezier(.4,0,.2,1), left 0.02s linear, top 0.02s linear'
-        }}
-      >
-        {word}
-      </div>
-    );
-  }, [settings.theme]);
+  const pulseShipHit = useCallback(() => {
+    setShipHitFlash(true);
+    window.clearTimeout(hitTimeoutRef.current);
+    hitTimeoutRef.current = window.setTimeout(() => setShipHitFlash(false), 380);
+  }, []);
 
-  // Optimize input handling
-  const handleInputChange = (e) => {
-    if (!isGameActive || gameOver) return;
-    const value = e.target.value.toLowerCase();
-    
-    // Play typing sound for each keypress
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('type'); // keep for typing
-    }
-
-    setTyped(value);
-    setLastKeyPressed(value.slice(-1));
-    setKeystrokes(prev => prev + 1);
-
-    // Only match words that are not faded or matched
-    const allWords = lanes.flat();
-    const exactMatch = allWords.find(w => !w.matched && !w.faded && w.word === value);
-    if (exactMatch) {
-      handleWordComplete(exactMatch);
+  const clearTargetInput = useCallback(
+    (message) => {
+      typedRef.current = '';
+      targetRef.current = null;
       setTyped('');
-      setLanes(prevLanes => prevLanes.map(lane =>
-        lane.map(word =>
-          word.id === exactMatch.id ? { ...word, matched: true } : word
-        )
-      ));
-      setCorrectKeystrokes(prev => prev + value.length);
-    }
-    
-    setAccuracy(Math.round((correctKeystrokes / keystrokes) * 100) || 0);
-  };
+      setActiveTargetId(null);
+      setInputError(false);
+      if (message) {
+        showStatus(message);
+      }
+    },
+    [showStatus],
+  );
 
-
-
-  useEffect(() => {
-    if (gameOver && audioManager) {
-      audioManager.pauseSound('ambient'); // Stop ambient on game over
-    }
-  }, [gameOver, audioManager]);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      gameContainerRef.current.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
+  const pushExplosion = useCallback((x, y, size, life = 520) => {
+    const nextExplosion = {
+      id: uid('explosion'),
+      x,
+      y,
+      size,
+      expiresAt: performance.now() + life,
     };
-  };
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
+    const next = [...explosionsRef.current, nextExplosion];
+    explosionsRef.current = next;
+    setExplosions(next);
   }, []);
 
-  // Oyun sonunda skor gönder ve leaderboard'u çek
-  useEffect(() => {
-    if (!gameOver) return;
-    setSubmittingScore(true);
-    setLeaderboardError(null);
-    const gameDuration = 60; // Süreyi burada ayarla (veya dinamikse state'ten al)
-    fetch('http://localhost:3001/results', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: playerName,
-        time: gameDuration,
-        wpm: wpm,
-        accuracy: accuracy
-      })
-    })
-      .then(() => fetch('http://localhost:3001/results'))
-      .then(res => {
-        if (!res.ok) throw new Error('Network error');
-        return res.json();
-      })
-      .then(data => setLeaderboard(
-        [...data].sort((a, b) => b.wpm - a.wpm) // Sort by WPM descending
-      ))
-      .catch(() => setLeaderboardError('Could not load leaderboard.'))
-      .finally(() => setSubmittingScore(false));
-  }, [gameOver, playerName, wpm, accuracy]);
+  const pushLaser = useCallback((target, finisher = false) => {
+    const point = getShipPoint(arenaSizeRef.current);
+    const dx = target.x - point.x;
+    const dy = target.y - point.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
-  const layoutStyles = {
-    container: {
-      width: '100%',
-      height: '100vh',
-      background: 'radial-gradient(circle at center, rgba(30,40,50,0.8) 0%, rgba(18,18,18,0.95) 100%)',
-      overflow: 'hidden',
-      position: 'relative'
-    },
-    gameArea: {
-      flex: 1,
-      position: 'relative',
-      backgroundColor: 'rgba(20, 25, 40, 0.4)',
-      backdropFilter: 'blur(10px)',
-      borderRadius: '12px',
-      boxShadow: 'inset 0 0 50px rgba(0,0,0,0.3)',
-      overflow: 'hidden'
-    },
-    inputContainer: {
-      position: 'fixed',
-      left: '50px',
-      top: '40%',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'flex-start',
-      gap: '20px',
-      width: '300px',
-      zIndex: 10,
-    },
-    wordContainer: {
-      marginLeft: '400px',
-      height: `calc(100% - ${KEYBOARD_HEIGHT}px)`,
-      position: 'relative',
-      overflow: 'hidden'
+    const nextLaser = {
+      id: uid('laser'),
+      x: point.x,
+      y: point.y,
+      length,
+      angle,
+      expiresAt: performance.now() + (finisher ? 180 : 130),
+    };
+
+    const next = [...lasersRef.current, nextLaser];
+    lasersRef.current = next;
+    setLasers(next);
+  }, []);
+
+  const createMeteor = useCallback(() => {
+    if (!candidateWords.length) return null;
+
+    const area = arenaSizeRef.current;
+    const ship = getShipPoint(area);
+    const laneCenters = getMeteorLaneCenters(area);
+
+    let text = candidateWords[Math.floor(Math.random() * candidateWords.length)];
+    const occupied = new Set(meteorsRef.current.map((meteor) => meteor.text));
+    for (let attempt = 0; attempt < 6 && occupied.has(text); attempt += 1) {
+      text = candidateWords[Math.floor(Math.random() * candidateWords.length)];
     }
-  };
 
-  // Update gameLayout to include laser effects
-  const gameLayout = (
-    <div style={{ position: 'relative', height: '100%' }}>
-      {/* Add laser effects rendering */}
-      {lasers.map(laser => (
+    const size = clamp(116 + text.length * 3.2, 118, 182);
+
+    const laneOptions = laneCenters
+      .map((laneY, laneIndex) => {
+        const laneMeteors = meteorsRef.current.filter((meteor) => meteor.laneIndex === laneIndex);
+        const rightMost = laneMeteors.reduce((maxX, meteor) => Math.max(maxX, meteor.x + meteor.size * 0.75), 0);
+        const minGap = laneMeteors.length
+          ? Math.min(...laneMeteors.map((meteor) => Math.abs(area.width + size - meteor.x)))
+          : Number.MAX_SAFE_INTEGER;
+
+        return {
+          laneIndex,
+          laneY,
+          minGap,
+          rightMost,
+          load: laneMeteors.length,
+        };
+      })
+      .sort((a, b) => b.minGap - a.minGap || a.load - b.load);
+
+    const selectedLane = laneOptions[0];
+    const baseY = clamp(selectedLane.laneY + randomBetween(-6, 6), size * 0.55 + 20, area.height - size * 0.55 - 28);
+    const spawnBaseX = area.width + size * 0.9 + randomBetween(26, 72);
+    const spawnX = Math.max(spawnBaseX, selectedLane.rightMost + size * 1.32 + randomBetween(18, 48));
+    const impactX = ship.x + randomBetween(28, 52);
+    const impactY = baseY;
+    const travelSeconds = randomBetween(profile.travelMin, profile.travelMax);
+    const floatPhase = randomBetween(0, Math.PI * 2);
+    const floatAmplitude = randomBetween(1.4, 4.2);
+
+    return {
+      id: uid('meteor'),
+      text,
+      x: spawnX,
+      y: baseY,
+      shellFloatY: Math.sin(floatPhase) * floatAmplitude,
+      vx: (impactX - spawnX) / travelSeconds,
+      vy: 0,
+      impactX,
+      impactY,
+      laneIndex: selectedLane.laneIndex,
+      baseY,
+      floatPhase,
+      floatAmplitude,
+      floatSpeed: randomBetween(0.42, 0.78),
+      size,
+      rotation: randomBetween(0, 360),
+      spin: randomBetween(-5, 5),
+      variant: Math.floor(Math.random() * 3),
+    };
+  }, [candidateWords, profile.travelMax, profile.travelMin]);
+
+  const resetRoundState = useCallback(() => {
+    finishGuardRef.current = false;
+    typedRef.current = '';
+    targetRef.current = null;
+    meteorsRef.current = [];
+    lasersRef.current = [];
+    explosionsRef.current = [];
+    recentClearsRef.current = [];
+    statsRef.current = { keystrokes: 0, correctChars: 0 };
+    streakRef.current = 0;
+    bestStreakRef.current = 0;
+    hullRef.current = profile.hull;
+    destroyedRef.current = 0;
+    accuracyRef.current = 100;
+    wpmRef.current = 0;
+
+    setTyped('');
+    setActiveTargetId(null);
+    setInputError(false);
+    setMeteors([]);
+    setLasers([]);
+    setExplosions([]);
+    setStreak(0);
+    setBestStreak(0);
+    setHull(profile.hull);
+    setDestroyed(0);
+    setAccuracy(100);
+    setWpm(0);
+    setTimeLeft(profile.sessionSeconds);
+    setGameOver(false);
+    setGameOverReason('Mission complete');
+    setShipHitFlash(false);
+    setStatusMessage('Focus the field and start typing to lock the closest meteor.');
+  }, [profile.hull, profile.sessionSeconds]);
+
+  const finishGame = useCallback(
+    (reason) => {
+      if (finishGuardRef.current) return;
+      finishGuardRef.current = true;
+
+      window.cancelAnimationFrame(frameRef.current);
+      syncStats(performance.now());
+
+      const finalBoard = saveScoreToLeaderboard({
+        name: playerName?.trim() || localStorage.getItem('typingGamePlayerName') || 'anon',
+        wpm: wpmRef.current,
+        accuracy: accuracyRef.current,
+        time: profile.sessionSeconds,
+      });
+
+      setLeaderboard(finalBoard.slice(0, 10));
+      setIsGameActive(false);
+      setIsPaused(false);
+      setGameOver(true);
+      setGameOverReason(reason);
+      audioManager?.pauseSound('ambient');
+    },
+    [audioManager, playerName, profile.sessionSeconds, syncStats],
+  );
+
+  const destroyMeteor = useCallback(
+    (meteor) => {
+      const nextMeteors = meteorsRef.current.filter((entry) => entry.id !== meteor.id);
+      meteorsRef.current = nextMeteors;
+      setMeteors(nextMeteors);
+
+      pushExplosion(meteor.x, meteor.y, meteor.size * 0.9, 600);
+      audioManager?.playSound('hit');
+
+      const nextStreak = streakRef.current + 1;
+      const nextBestStreak = Math.max(bestStreakRef.current, nextStreak);
+      const nextDestroyed = destroyedRef.current + 1;
+
+      streakRef.current = nextStreak;
+      bestStreakRef.current = nextBestStreak;
+      destroyedRef.current = nextDestroyed;
+      recentClearsRef.current = [...recentClearsRef.current.filter((stamp) => performance.now() - stamp < 5600), performance.now()];
+      nextSpawnRef.current = Math.min(nextSpawnRef.current, performance.now() + 140);
+
+      setStreak(nextStreak);
+      setBestStreak(nextBestStreak);
+      setDestroyed(nextDestroyed);
+      clearTargetInput(`${meteor.text} cleared.`);
+    },
+    [audioManager, clearTargetInput, pushExplosion],
+  );
+
+  const damageShip = useCallback(
+    (impactedMeteors) => {
+      if (!impactedMeteors.length) return;
+
+      impactedMeteors.forEach((meteor, index) => {
+        pushExplosion(meteor.x, meteor.y, meteor.size * 0.8, 480);
+        pushExplosion(shipPoint.x + randomBetween(-36, 36), shipPoint.y + randomBetween(-20, 8), 120 + index * 10, 560);
+      });
+
+      const nextHull = clamp(hullRef.current - impactedMeteors.length * profile.impactDamage, 0, profile.hull);
+      hullRef.current = nextHull;
+      streakRef.current = 0;
+      setHull(nextHull);
+      setStreak(0);
+      pulseShipHit();
+      audioManager?.playSound('impact');
+
+      if (impactedMeteors.some((meteor) => meteor.id === targetRef.current)) {
+        clearTargetInput('Target lost during impact.');
+      }
+
+      if (nextHull <= 0) {
+        finishGame('Ship destroyed');
+      }
+    },
+    [audioManager, clearTargetInput, finishGame, profile.hull, profile.impactDamage, pulseShipHit, pushExplosion, shipPoint.x, shipPoint.y],
+  );
+
+  const step = useCallback(
+    (now) => {
+      if (!isGameActive || isPaused || gameOver) return;
+
+      const delta = Math.min(MAX_FRAME_MS, now - (lastFrameRef.current || now));
+      lastFrameRef.current = now;
+
+      const remainingMs = Math.max(0, profile.sessionSeconds * 1000 - getElapsedMs(now));
+      const nextTime = Math.ceil(remainingMs / 1000);
+      setTimeLeft((current) => (current === nextTime ? current : nextTime));
+
+      if (remainingMs <= 0) {
+        finishGame('Mission complete');
+        return;
+      }
+
+      let workingMeteors = meteorsRef.current.map((meteor) => ({
+        ...meteor,
+        floatPhase: meteor.floatPhase + meteor.floatSpeed * (delta / 1000),
+        x: meteor.x + meteor.vx * (delta / 1000),
+        y: meteor.baseY,
+        shellFloatY: Math.sin(meteor.floatPhase + meteor.floatSpeed * (delta / 1000)) * meteor.floatAmplitude,
+        rotation: meteor.rotation + meteor.spin * (delta / 1000),
+      }));
+
+      const impacted = [];
+      const ship = getShipPoint(arenaSizeRef.current);
+
+      workingMeteors = workingMeteors.filter((meteor) => {
+        const distance = Math.hypot(meteor.x - ship.x, meteor.y - ship.y);
+        const breached = meteor.x <= meteor.impactX || distance < meteor.size * 0.35 + 30;
+        if (breached) {
+          impacted.push(meteor);
+          return false;
+        }
+        return true;
+      });
+
+      if (impacted.length) {
+        damageShip(impacted);
+      }
+
+      if (finishGuardRef.current) {
+        return;
+      }
+
+      const activeStillExists = workingMeteors.some((meteor) => meteor.id === targetRef.current);
+      if (!activeStillExists && targetRef.current) {
+        clearTargetInput('Target drifted out of lock.');
+      }
+
+      const recentClears = recentClearsRef.current.filter((stamp) => now - stamp < 5600);
+      recentClearsRef.current = recentClears;
+      const desiredMeteorCount = clamp(
+        profile.baseVisibleMeteors
+          + Math.min(2, Math.floor(recentClears.length / 3))
+          + Math.min(2, Math.floor(wpmRef.current / 34))
+          + (accuracyRef.current >= 97 ? 1 : 0)
+          - (activeContext?.id === 'quote' || activeContext?.id === 'code' ? 1 : 0),
+        2,
+        profile.maxMeteors,
+      );
+
+      if (now >= nextSpawnRef.current && workingMeteors.length < desiredMeteorCount) {
+        const spawnTarget = workingMeteors.length === 0
+          ? desiredMeteorCount
+          : Math.min(desiredMeteorCount, workingMeteors.length + 2);
+
+        while (workingMeteors.length < spawnTarget) {
+          meteorsRef.current = workingMeteors;
+          const meteor = createMeteor();
+          if (!meteor) break;
+          workingMeteors = [...workingMeteors, meteor];
+        }
+
+        const spawnDelay = clamp(
+          profile.baseSpawnDelay
+            - recentClears.length * 48
+            - wpmRef.current * 4
+            - Math.max(0, desiredMeteorCount - workingMeteors.length) * 110,
+          profile.minSpawnDelay,
+          profile.maxSpawnDelay,
+        );
+        nextSpawnRef.current = now + spawnDelay;
+      }
+
+      meteorsRef.current = workingMeteors;
+      setMeteors(workingMeteors);
+
+      const nextLasers = lasersRef.current.filter((laser) => laser.expiresAt > now);
+      const nextExplosions = explosionsRef.current.filter((explosion) => explosion.expiresAt > now);
+
+      if (nextLasers.length !== lasersRef.current.length) {
+        lasersRef.current = nextLasers;
+        setLasers(nextLasers);
+      }
+      if (nextExplosions.length !== explosionsRef.current.length) {
+        explosionsRef.current = nextExplosions;
+        setExplosions(nextExplosions);
+      }
+
+      if (finishGuardRef.current) {
+        return;
+      }
+
+      syncStats(now);
+      frameRef.current = window.requestAnimationFrame(step);
+    },
+    [activeContext?.id, clearTargetInput, createMeteor, damageShip, finishGame, gameOver, getElapsedMs, isGameActive, isPaused, profile.baseSpawnDelay, profile.baseVisibleMeteors, profile.maxMeteors, profile.maxSpawnDelay, profile.minSpawnDelay, profile.sessionSeconds, syncStats],
+  );
+
+  const startGame = useCallback(() => {
+    resetRoundState();
+    setLeaderboard(readLeaderboard().slice(0, 10));
+    setIsPaused(false);
+    setIsGameActive(true);
+    audioManager?.unlock?.();
+
+    const now = performance.now();
+    startTimeRef.current = now;
+    pausedDurationRef.current = 0;
+    pauseStartedAtRef.current = 0;
+    lastFrameRef.current = now;
+
+    const initialWave = [];
+    meteorsRef.current = initialWave;
+    while (initialWave.length < profile.baseVisibleMeteors) {
+      meteorsRef.current = initialWave;
+      const meteor = createMeteor();
+      if (!meteor) break;
+      initialWave.push(meteor);
+    }
+    meteorsRef.current = initialWave;
+    setMeteors(initialWave);
+    nextSpawnRef.current = now + 220;
+
+    audioManager?.pauseSound('ambient');
+    if (settings?.soundEnabled) {
+      audioManager?.playSound('ambient');
+    }
+
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+    showStatus('Typing active. The game will keep filling the lane as you clear targets.');
+  }, [audioManager, createMeteor, profile.baseVisibleMeteors, resetRoundState, settings?.soundEnabled, showStatus]);
+
+  const togglePause = useCallback(() => {
+    if (!isGameActive || gameOver) return;
+
+    setIsPaused((current) => {
+      const next = !current;
+      if (next) {
+        pauseStartedAtRef.current = performance.now();
+        audioManager?.pauseSound('ambient');
+      } else {
+        const now = performance.now();
+        pausedDurationRef.current += now - pauseStartedAtRef.current;
+        pauseStartedAtRef.current = 0;
+        lastFrameRef.current = now;
+        if (settings?.soundEnabled) {
+          audioManager?.playSound('ambient');
+        }
+        window.requestAnimationFrame(() => inputRef.current?.focus());
+      }
+      return next;
+    });
+  }, [audioManager, gameOver, isGameActive, settings?.soundEnabled]);
+
+  const processChar = useCallback(
+    (character) => {
+      if (!isGameActive || isPaused || gameOver) return;
+
+      const nextTyped = `${typedRef.current}${character}`;
+      const liveMeteors = meteorsRef.current;
+      const lockedTarget = liveMeteors.find((meteor) => meteor.id === targetRef.current) || pickTargetMeteor(liveMeteors, nextTyped[0]);
+
+      statsRef.current.keystrokes += 1;
+
+      if (!lockedTarget) {
+        setInputError(true);
+        audioManager?.playSound('error');
+        showStatus('No visible meteor matches that opening letter.');
+        syncStats(performance.now());
+        return;
+      }
+
+      typedRef.current = nextTyped;
+      setTyped(nextTyped);
+      targetRef.current = lockedTarget.id;
+      setActiveTargetId(lockedTarget.id);
+
+      const expectedPrefix = lockedTarget.text.slice(0, nextTyped.length);
+      const isCorrect = expectedPrefix === nextTyped;
+
+      if (isCorrect) {
+        statsRef.current.correctChars += 1;
+        setInputError(false);
+        audioManager?.playSound('type');
+        pushLaser(lockedTarget, nextTyped === lockedTarget.text);
+
+        if (nextTyped === lockedTarget.text) {
+          destroyMeteor(lockedTarget);
+        } else if (nextTyped.length === 1) {
+          showStatus(`Lock acquired on ${formatWordLabel(lockedTarget.text, activeLanguage.locale)}.`);
+        }
+      } else {
+        setInputError(true);
+        audioManager?.playSound('error');
+        showStatus('Trajectory mismatch. Backspace or clear target.');
+      }
+
+      syncStats(performance.now());
+    },
+    [activeLanguage.locale, audioManager, destroyMeteor, gameOver, isGameActive, isPaused, pushLaser, showStatus, syncStats],
+  );
+
+  const handleInputChange = useCallback(
+    (event) => {
+      const normalized = normalizeTypedValue(event.target.value, activeLanguage.id);
+      const previous = typedRef.current;
+
+      if (!isGameActive || isPaused || gameOver) {
+        setTyped(normalized);
+        typedRef.current = normalized;
+        return;
+      }
+
+      if (normalized === previous) return;
+
+      if (normalized.length < previous.length) {
+        typedRef.current = normalized;
+        setTyped(normalized);
+        setInputError(false);
+        if (!normalized.length) {
+          targetRef.current = null;
+          setActiveTargetId(null);
+          showStatus('Lock released.');
+        }
+        syncStats(performance.now());
+        return;
+      }
+
+      const appended = normalized.startsWith(previous) ? normalized.slice(previous.length) : normalized;
+      if (!normalized.startsWith(previous)) {
+        clearTargetInput();
+      }
+
+      [...appended].forEach((character) => processChar(character));
+    },
+    [activeLanguage.id, clearTargetInput, gameOver, isGameActive, isPaused, processChar, showStatus, syncStats],
+  );
+
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (!isGameActive || isPaused || gameOver) return;
+
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        clearTargetInput('Lock cleared.');
+      }
+
+      if (event.key === ' ') {
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+      }
+    },
+    [clearTargetInput, gameOver, isGameActive, isPaused],
+  );
+
+  useEffect(() => {
+    syncArenaSize();
+    window.addEventListener('resize', syncArenaSize);
+    return () => window.removeEventListener('resize', syncArenaSize);
+  }, [syncArenaSize]);
+
+  useEffect(() => {
+    arenaSizeRef.current = arenaSize;
+  }, [arenaSize]);
+
+  useEffect(() => {
+    resetRoundState();
+    setLeaderboard(readLeaderboard().slice(0, 10));
+  }, [profile.key, resetRoundState]);
+
+  useEffect(() => {
+    if (!isGameActive || isPaused || gameOver) {
+      window.cancelAnimationFrame(frameRef.current);
+      return undefined;
+    }
+
+    frameRef.current = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(frameRef.current);
+  }, [gameOver, isGameActive, isPaused, step]);
+
+  useEffect(() => {
+    const handleWindowKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        togglePause();
+      }
+    };
+
+    window.addEventListener('keydown', handleWindowKeyDown);
+    return () => window.removeEventListener('keydown', handleWindowKeyDown);
+  }, [togglePause]);
+
+  useEffect(
+    () => () => {
+      window.cancelAnimationFrame(frameRef.current);
+      window.clearTimeout(hitTimeoutRef.current);
+      window.clearTimeout(statusTimeoutRef.current);
+      audioManager?.pauseSound('ambient');
+    },
+    [audioManager],
+  );
+
+  const activeTarget = useMemo(() => meteors.find((meteor) => meteor.id === activeTargetId) || null, [activeTargetId, meteors]);
+  const threats = useMemo(() => [...meteors].sort((a, b) => getTimeToImpact(a) - getTimeToImpact(b)).slice(0, 2), [meteors]);
+  const quoteFallback = activeContext?.id === 'quote' && !activeLanguage.hasQuotes;
+  const typedSegments = useMemo(() => splitGraphemes(typed), [typed]);
+  const timeProgress = useMemo(
+    () => clamp((timeLeft / profile.sessionSeconds) * 100, 0, 100),
+    [profile.sessionSeconds, timeLeft],
+  );
+  return (
+    <SpaceBackdrop className="ts-game">
+      <div ref={arenaRef} className={`ts-game__arena ${shipHitFlash ? 'is-hit' : ''}`} onClick={() => inputRef.current?.focus()}>
+        {lasers.map((laser) => (
+          <div
+            key={laser.id}
+            className="ts-laser"
+            style={{
+              width: `${laser.length}px`,
+              transform: `translate(${laser.x}px, ${laser.y - 7}px) rotate(${laser.angle}deg)`,
+            }}
+          >
+            <div className="ts-laser__glow" />
+            <div className="ts-laser__core" />
+          </div>
+        ))}
+
+        {meteors.map((meteor) => {
+          const isActive = meteor.id === activeTargetId;
+          const danger = meteor.x < shipPoint.x + 260;
+          const meteorSegments = splitGraphemes(meteor.text);
+          const progress = isActive ? clamp((typedSegments.length / meteorSegments.length) * 100, 0, 100) : 0;
+
+          return (
+            <div
+              key={meteor.id}
+              className={`ts-meteor ${isActive ? 'is-active' : ''}`}
+              style={{
+                width: `${meteor.size}px`,
+                height: `${meteor.size}px`,
+                transform: `translate3d(${meteor.x - meteor.size / 2}px, ${meteor.y - meteor.size / 2}px, 0)`,
+              }}
+            >
+              <div
+                className="ts-meteor__shell"
+                style={{ transform: `translate3d(0, ${meteor.shellFloatY || 0}px, 0) rotate(${meteor.rotation}deg)` }}
+              >
+                <MeteorSprite active={isActive} danger={danger} variant={meteor.variant} />
+              </div>
+              {isActive ? <div className="ts-target-reticle" /> : null}
+              <div className={`ts-meteor__label ${isActive ? 'is-active' : ''}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
+                <span className="ts-meteor__word">
+                  {meteorSegments.map((segment, index) => {
+                    if (!isActive || index >= typedSegments.length) {
+                      return <span key={`${meteor.id}-${index}`}>{segment}</span>;
+                    }
+
+                    const charClass = normalizeTypedValue(typedSegments[index], activeLanguage.id) === normalizeTypedValue(segment, activeLanguage.id)
+                      ? 'is-hit'
+                      : 'is-miss';
+                    return (
+                      <span key={`${meteor.id}-${index}`} className={charClass}>
+                        {segment}
+                      </span>
+                    );
+                  })}
+                </span>
+                {isActive ? (
+                  <div className="ts-meteor__progress">
+                    <span style={{ width: `${progress}%` }} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+
+        {explosions.map((explosion) => (
+          <div
+            key={explosion.id}
+            className="ts-explosion"
+            style={{
+              width: `${explosion.size}px`,
+              height: `${explosion.size}px`,
+              transform: `translate3d(${explosion.x - explosion.size / 2}px, ${explosion.y - explosion.size / 2}px, 0)`,
+            }}
+          >
+            <ExplosionBurst />
+          </div>
+        ))}
+
         <div
-          key={laser.id}
-          style={{
-            position: 'absolute',
-            left: laser.start.x,
-            top: laser.start.y,
-            width: `${laser.end.x - laser.start.x}px`,
-            height: '2px',
-            backgroundColor: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
-            boxShadow: `0 0 8px ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
-            transform: `rotate(${Math.atan2(laser.end.y - laser.start.y, laser.end.x - laser.start.x)}rad)`,
-            transformOrigin: 'left center',
-            animation: 'laserShoot 0.3s forwards',
-            zIndex: 10
-          }}
-          onAnimationEnd={() => setLasers(prev => prev.filter(l => l.id !== laser.id))}
-        />
-      ))}
-      
-      <div style={layoutStyles.inputContainer}>
-        <div
-          ref={shipRef}
-          style={{
-            position: 'relative',
-            marginBottom: '20px'
-          }}
+          className={`ts-ship-zone ${shipHitFlash ? 'is-hit' : ''}`}
+          style={{ transform: `translate3d(${shipPoint.x}px, ${shipPoint.y}px, 0) translate(-50%, -50%)` }}
         >
-          <SpaceshipEmoji theme={settings.theme} />
+          <ShipSprite danger={shipHitFlash} />
+        </div>
+      </div>
+
+      <div className="ts-game__toolbar">
+        <TypingToolbar compact />
+      </div>
+
+      <div className="ts-game__hud">
+        <div className="ts-hud-card ts-hud-card--brand">
+          <div className="ts-console__top">
+            <span className="ts-badge">standard mission</span>
+            <span className="ts-chip">{playerName?.trim() || localStorage.getItem('typingGamePlayerName') || 'anon'}</span>
+          </div>
+          <div className="ts-console__target" style={{ marginTop: 12 }}>
+            {activeLanguage.flag} <strong>{activeLanguage.label}</strong> · {activeContext?.label || 'Words'}
+          </div>
+          <div className={`ts-hull-meter ${hull <= 34 ? 'is-critical' : ''}`}>
+            <span style={{ width: `${clamp(hull, 0, 100)}%` }} />
+          </div>
         </div>
 
+        <div className="ts-hud__stats--clean ts-hud__stats--mission">
+          <div className="ts-hud-card">
+            <span className="ts-stat__label">WPM</span>
+            <strong className="ts-stat__value">{wpm}</strong>
+          </div>
+          <div className="ts-hud-card">
+            <span className="ts-stat__label">Accuracy</span>
+            <strong className="ts-stat__value">{accuracy}%</strong>
+          </div>
+          <div className="ts-hud-card">
+            <span className="ts-stat__label">Ship</span>
+            <strong className="ts-stat__value">{hull}</strong>
+          </div>
+          <div className="ts-hud-card">
+            <span className="ts-stat__label">Time</span>
+            <strong className="ts-stat__value">{timeLeft}s</strong>
+            <div className={`ts-time-meter ${timeLeft <= 15 ? 'is-critical' : ''}`}>
+              <span style={{ width: `${timeProgress}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="ts-console ts-console--clean ts-console--mission">
+        <div className="ts-console__top">
+          <div className="ts-console__target">
+            target <strong>{activeTarget ? activeTarget.text : 'idle'}</strong>
+          </div>
+          <div className="ts-console__metrics">
+            <span className="ts-chip">cleared {destroyed}</span>
+            <span className="ts-chip">streak {streak}</span>
+            <span className="ts-chip">threats {meteors.length}</span>
+            {quoteFallback ? <span className="ts-chip ts-chip--warning">quote fallback</span> : null}
+          </div>
+        </div>
+        <div className={`ts-console__status ${inputError ? 'is-error' : ''}`}>{statusMessage}</div>
+        <div className="ts-console__threats">
+          {threats.length === 0 ? (
+            <span className="ts-chip">clear</span>
+          ) : (
+            threats.map((meteor) => (
+              <span key={meteor.id} className="ts-chip ts-chip--threat">
+                {meteor.text} {formatEta(meteor)}
+              </span>
+            ))
+          )}
+        </div>
+        <div className={`ts-console__readout ${typed ? '' : 'is-placeholder'}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
+          {typed || 'start typing to acquire a target'}
+        </div>
         <input
           ref={inputRef}
-          type="text"
+          className="ts-console__ghost-input"
           value={typed}
           onChange={handleInputChange}
-          className="input-shine"
-          style={{
-            width: '100%',
-            padding: '15px 20px',
-            fontSize: '20px',
-            backgroundColor: settings.theme === 'dark' ? 'rgba(30, 35, 45, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-            color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-            border: `2px solid ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.5)' : 'rgba(0, 135, 198, 0.5)'}`,
-            borderRadius: '12px',
-            outline: 'none',
-            boxShadow: `0 0 20px ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.2)' : 'rgba(0, 135, 198, 0.15)'}`,
-            backdropFilter: 'blur(10px)',
-            transition: 'all 0.3s ease',
-          }}
+          onKeyDown={handleKeyDown}
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          inputMode="text"
+          aria-label="Typing input"
         />
+        <div className="ts-console__footer">
+          <span>tab clear lock</span>
+          <span>esc pause</span>
+          <span>hidden live input</span>
+        </div>
       </div>
 
-      <div style={layoutStyles.wordContainer}>
-        {lanes.map(lane => lane.map(word => renderWord(word)))}
-      </div>
-
-      <div style={{
-        position: 'fixed',
-        left: '50px',
-        bottom: '20px',
-        zIndex: 10,
-      }}>
-        <VirtualKeyboard theme={settings.theme} lastKeyPressed={lastKeyPressed} />
-      </div>
-    </div>
-  );
-
-  // --- StatBox ve header statlarını yukarıda ortala ---
-  const statsDisplay = (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '24px',
-      backgroundColor: settings.theme === 'dark' ? 'rgba(60, 70, 90, 0.5)' : 'rgba(240, 245, 255, 0.5)',
-      padding: '10px 24px',
-      borderRadius: '24px',
-      margin: '0 auto',
-      marginBottom: '18px',
-      fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif'
-    }}>
-      <StatBox label="WPM" value={wpm} theme={settings.theme} />
-      <StatBox label="ACC" value={`${accuracy}%`} theme={settings.theme} />
-      <StatBox label="Keys" value={keystrokes} theme={settings.theme} />
-      <StatBox label="Time" value={`${timeLeft}s`} theme={settings.theme} />
-    </div>
-  );
-
-  // --- Fullscreen, Main Menu, Pause tuşları ana menüdeki font ve spacing ile ---
-  const headerButtons = (
-    <div style={{ display: 'flex', gap: '20px', fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif' }}>
-      <button
-        onClick={() => {
-          handleButtonClick();
-          toggleFullscreen();
-        }}
-        className="game-action-btn"
-        style={{
-          padding: '10px 20px', // Reduced padding
-          fontSize: '1rem', // Reduced font size
-          backgroundColor: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
-          color: settings.theme === 'dark' ? '#181d26' : '#fff',
-          border: 'none',
-          borderRadius: '20px', // Reduced border radius
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          boxShadow: settings.theme === 'dark'
-            ? '0 0 8px rgba(75, 213, 238, 0.5)'
-            : '0 0 8px rgba(0, 135, 198, 0.3)',
-          transition: 'all 0.2s',
-          letterSpacing: '1px',
-        }}
-      >
-        {isFullscreen ? '🗕 Exit Fullscreen' : '🗖 Fullscreen'}
-      </button>
-      <button
-        onClick={() => {
-          handleButtonClick();
-          onExit();
-        }}
-        className="game-action-btn"
-        style={{
-          padding: '10px 20px', // Reduced padding
-          fontSize: '1rem', // Reduced font size
-          backgroundColor: 'transparent',
-          color: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
-          border: `2px solid ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
-          borderRadius: '20px', // Reduced border radius
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          boxShadow: 'none',
-          transition: 'all 0.2s',
-          letterSpacing: '1px',
-        }}
-      >
-        🏠 Main Menu
-      </button>
-      <button
-        onClick={handlePauseToggle}
-        className="game-action-btn"
-        style={{
-          padding: '10px 20px', // Reduced padding
-          fontSize: '1rem', // Reduced font size
-          backgroundColor: isPaused ? '#ffd700' : (settings.theme === 'dark' ? '#232b3b' : '#e3f2fd'),
-          color: isPaused ? '#181d26' : (settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'),
-          border: `2px solid ${isPaused ? '#ffd700' : (settings.theme === 'dark' ? '#4bd5ee' : '#0087c6')}`,
-          borderRadius: '20px', // Reduced border radius
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          boxShadow: isPaused ? '0 0 8px #ffd70088' : 'none',
-          transition: 'all 0.2s',
-          letterSpacing: '1px',
-        }}
-      >
-        {isPaused ? '▶️ Resume' : '⏸ Pause'}
-      </button>
-    </div>
-  );
-
-  // --- Oyun başladığında kelimeler hemen gelsin, tüm lane'ler eşit ve dolu başlasın ---
-  const startGame = () => {
-    // Fill each lane with 6 words, spaced equally, at the right edge
-    const initialLanes = Array(LANE_COUNT).fill([]).map((_, laneIndex) => {
-      const words = [];
-      let x = gameAreaRef.current.clientWidth;
-      for (let i = 0; i < 6; i++) {
-        const word = generateWord(gameAreaRef.current, laneIndex, words);
-        if (word) {
-          word.x = x;
-          if (!isColliding(word, words, 20)) {
-            words.push(word);
-            x += (word.word.length * 15) + WORD_SPACING;
-          }
-        }
-      }
-      return words;
-    });
-
-    setLanes(initialLanes);
-    setIsGameActive(true);
-    setTimeLeft(60);
-    setLasers([]);
-    setCorrectChars(0);
-    setWpm(0);
-    setGameOver(false);
-    setTyped('');
-    setIsPaused(false);
-    requestAnimationFrame(gameLoop);
-
-    if (settings.soundEnabled && audioManager) {
-      audioManager.playSound('ambient');
-    }
-  };
-
-  // Add handleReplay before return
-  const handleReplay = () => {
-    startGame();
-  };
-
-  // --- Statları yukarıda ortala, header'da ortada göster ---
-  return (
-    <div ref={gameContainerRef} style={{
-      width: '100%',
-      height: '100vh',
-      background: settings.theme === 'dark' 
-        ? 'linear-gradient(-45deg, #121212, #1a1a1a, #242424, #1a1a1a)'
-        : 'linear-gradient(-45deg, #f0f8ff, #ffffff, #f5f5f5, #ffffff)',
-      backgroundSize: '400% 400%',
-      animation: 'gradientBG 15s ease infinite',
-      color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-      position: 'relative',
-      overflow: 'hidden',
-      fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif',
-    }}>
-      {/* Floating meteors on soft edges */}
-      <FloatingMeteors theme={settings.theme} />
-      <div style={{ 
-        position: 'relative', 
-        zIndex: 1, 
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-      }}>
-        {/* Statları yukarıda ortala */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <h1 style={{
-            fontSize: '2rem',
-            margin: 0,
-            textShadow: settings.theme === 'dark' ? '0 0 10px rgba(75, 213, 238, 0.7)' : '0 0 10px rgba(0, 135, 198, 0.4)',
-            letterSpacing: '2px',
-            fontFamily: 'Orbitron, "Exo 2", Arial, sans-serif'
-          }}>
-            TYPE SHIP
-          </h1>
-          {statsDisplay}
-        </div>
-        {/* Header tuşları sağda */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          marginBottom: '10px',
-          marginTop: '-70px', // statDisplay ile hizalı dursun
-          width: '100%'
-        }}>
-          {headerButtons}
-        </div>
-        {/* Game Area */}
-        <div
-          ref={gameAreaRef}
-          style={{
-            flex: 1,
-            position: 'relative',
-            backgroundColor: settings.theme === 'dark' ? 'rgba(20, 25, 40, 0.3)' : 'rgba(240, 245, 255, 0.3)',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            boxShadow: settings.theme === 'dark'
-              ? '0 8px 40px 0 #000a, 0 1.5px 8px 0 #4bd5ee33'
-              : '0 8px 40px 0 #0002',
-          }}
-        >
-          {/* ...gameLayout... */}
-          {gameLayout}
-        </div>
-
-        {/* Overlays */}
-        {!isGameActive && !gameOver && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            background: 'rgba(0,0,0,0.78)',
-            zIndex: 100,
-          }}>
-            <div style={{
-              background: settings.theme === 'dark'
-                ? 'linear-gradient(135deg, #181d26 0%, #232b3b 100%)'
-                : 'linear-gradient(135deg, #e3f2fd 0%, #fff 100%)',
-              borderRadius: '32px',
-              boxShadow: settings.theme === 'dark'
-                ? '0 8px 40px 0 #000a, 0 1.5px 8px 0 #4bd5ee33'
-                : '0 8px 40px 0 #0002',
-              padding: '48px 36px 36px 36px',
-              minWidth: '340px',
-              maxWidth: '95vw',
-              width: '420px',
-              textAlign: 'center',
-              border: `2px solid ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}>
-              <h2 style={{
-                fontSize: '2.3rem',
-                color: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
-                marginBottom: '1.2rem',
-                letterSpacing: '2px',
-                fontWeight: 700,
-                textShadow: settings.theme === 'dark'
-                  ? '0 0 12px #4bd5ee99'
-                  : '0 0 10px #0087c699'
-              }}>
-                Ready to Test Your Typing Speed?
-              </h2>
-              <div style={{
-                fontSize: '1.15rem',
-                color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-                marginBottom: '2.2rem',
-                lineHeight: 1.7,
-                letterSpacing: '0.5px'
-              }}>
-                <span style={{
-                  display: 'inline-block',
-                  background: settings.theme === 'dark'
-                    ? 'rgba(75,213,238,0.08)'
-                    : 'rgba(0,135,198,0.08)',
-                  borderRadius: '18px',
-                  padding: '10px 22px',
-                  fontWeight: 500,
-                  boxShadow: settings.theme === 'dark'
-                    ? '0 0 8px #4bd5ee33'
-                    : '0 0 8px #0087c633'
-                }}>
-                  You have <b>60 seconds</b>.<br />
-                  Type as many words as you can!
-                </span>
+      {!isGameActive && !gameOver ? (
+        <div className="ts-overlay">
+          <div className="ts-overlay-card">
+            <div className="ts-overlay-card__header">
+              <div>
+                <span className="ts-badge">launch</span>
+                <h2 className="ts-overlay-title">TypeShip</h2>
               </div>
-              <button
-                onClick={startGame}
-                style={{
-                  padding: '15px 30px',
-                  fontSize: '1.2rem',
-                  backgroundColor: '#4bd5ee',
-                  color: '#181d26',
-                  border: 'none',
-                  borderRadius: '30px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  boxShadow: '0 0 15px rgba(75, 213, 238, 0.7)',
-                  letterSpacing: '1px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                START TEST
-              </button>
+              <span className="ts-chip">{activeLanguage.flag} {activeLanguage.label}</span>
+            </div>
+
+            <div className="ts-overlay-meta">
+              <div className="ts-score-card">
+                <span className="ts-stat__label">Time</span>
+                <strong>{profile.sessionSeconds}s</strong>
+              </div>
+              <div className="ts-score-card">
+                <span className="ts-stat__label">Context</span>
+                <strong>{activeContext?.label || 'Words'}</strong>
+              </div>
+              <div className="ts-score-card">
+                <span className="ts-stat__label">Flow</span>
+                <strong>adaptive</strong>
+              </div>
+            </div>
+
+            <div className="ts-overlay-actions">
+              <button className="ts-primary-button" onClick={startGame}>start run</button>
+              <button className="ts-secondary-button" onClick={onExit}>menu</button>
             </div>
           </div>
-        )}
+        </div>
+      ) : null}
 
-        {gameOver && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            color: '#fff',
-            zIndex: 100,
-          }}>
-            {/* Game Over Stats */}
-            <div style={{
-              background: settings.theme === 'dark'
-                ? 'linear-gradient(135deg, #181d26 0%, #232b3b 100%)'
-                : 'linear-gradient(135deg, #e3f2fd 0%, #fff 100%)',
-              borderRadius: '32px',
-              boxShadow: settings.theme === 'dark'
-                ? '0 8px 40px 0 #000a, 0 1.5px 8px 0 #4bd5ee33'
-                : '0 8px 40px 0 #0002',
-              padding: '36px 36px 24px 36px',
-              minWidth: '340px',
-              maxWidth: '95vw',
-              width: '420px',
-              textAlign: 'center',
-              border: `2px solid ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              marginBottom: '24px'
-            }}>
-              <h2 style={{
-                fontSize: '2rem',
-                color: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
-                marginBottom: '0.8rem',
-                letterSpacing: '2px',
-                fontWeight: 700,
-                textShadow: settings.theme === 'dark'
-                  ? '0 0 12px #4bd5ee99'
-                  : '0 0 10px #0087c699'
-              }}>
-                Game Over!
-              </h2>
-              <div style={{ display: 'flex', gap: '18px', justifyContent: 'center', marginBottom: '1.2rem' }}>
-                <StatBox label="WPM" value={wpm} theme={settings.theme} />
-                <StatBox label="ACC" value={`${accuracy}%`} theme={settings.theme} />
-                <StatBox label="Keys" value={keystrokes} theme={settings.theme} />
-              </div>
-            </div>
-            {/* Leaderboard */}
-            <div style={{
-              background: settings.theme === 'dark'
-                ? 'linear-gradient(135deg, #232b3b 0%, #181d26 100%)'
-                : 'linear-gradient(135deg, #e3f2fd 0%, #fff 100%)',
-              borderRadius: '24px',
-              boxShadow: settings.theme === 'dark'
-                ? '0 8px 40px 0 #000a, 0 1.5px 8px 0 #4bd5ee33'
-                : '0 8px 40px 0 #0002',
-              padding: '24px 24px 16px 24px',
-              minWidth: '280px',
-              maxWidth: '90vw',
-              width: '340px',
-              textAlign: 'center',
-              border: `2px solid ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'}`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}>
-              <h3 style={{
-                fontSize: '1.2rem',
-                color: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
-                marginBottom: '0.6rem',
-                letterSpacing: '1px',
-                fontWeight: 600,
-              }}>
-                Leaderboard
-              </h3>
-              {submittingScore ? (
-                <div>Loading...</div>
-              ) : leaderboardError ? (
-                <div style={{ color: 'red' }}>{leaderboardError}</div>
-              ) : (
-                <ol style={{
-                  listStyle: 'decimal',
-                  paddingLeft: '1.2em',
-                  margin: 0,
-                  width: '100%',
-                  textAlign: 'left'
-                }}>
-                  {leaderboard.slice(0, 10).map((entry, idx) => (
-                    <li key={entry.name + idx} style={{
-                      padding: '6px 0',
-                      color: entry.name === playerName ? (settings.theme === 'dark' ? '#ffd700' : '#b8860b') : undefined,
-                      fontWeight: entry.name === playerName ? 'bold' : undefined
-                    }}>
-                      {entry.name}: <b>{entry.wpm}</b> WPM, {entry.accuracy}% ACC
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: '15px', marginTop: '2rem' }}>
-              <button
-                onClick={startGame}
-                style={{
-                  padding: '12px 25px',
-                  fontSize: '1.1rem',
-                  backgroundColor: '#4bd5ee',
-                  color: '#121212',
-                  border: 'none',
-                  borderRadius: '25px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  boxShadow: '0 0 15px rgba(75, 213, 238, 0.5)',
-                }}
-              >
-                TRY AGAIN
-              </button>
-              <button
-                onClick={onExit}
-                style={{
-                  padding: '12px 25px',
-                  fontSize: '1.1rem',
-                  backgroundColor: 'transparent',
-                  color: '#fff',
-                  border: '2px solid #fff',
-                  borderRadius: '25px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                }}
-              >
-                MAIN MENU
-              </button>
+      {isPaused && isGameActive && !gameOver ? (
+        <div className="ts-overlay">
+          <div className="ts-overlay-card">
+            <span className="ts-badge">pause</span>
+            <h2 className="ts-overlay-title" style={{ marginTop: 14 }}>Paused</h2>
+            <div className="ts-overlay-actions">
+              <button className="ts-primary-button" onClick={togglePause}>resume</button>
+              <button className="ts-secondary-button" onClick={onExit}>menu</button>
             </div>
           </div>
-        )}
+        </div>
+      ) : null}
 
-        {/* Pause overlay */}
-        {isPaused && isGameActive && !gameOver && (
-          <div style={{
-            position: 'absolute',
-            top: 0, left: 0, width: '100%', height: '100%',
-            background: 'rgba(0,0,0,0.75)',
-            zIndex: 200,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <div style={{
-              background: settings.theme === 'dark'
-                ? 'linear-gradient(135deg, #232b3b 0%, #181d26 100%)'
-                : 'linear-gradient(135deg, #e3f2fd 0%, #fff 100%)',
-              borderRadius: '32px',
-              boxShadow: settings.theme === 'dark'
-                ? '0 8px 40px 0 #000a, 0 1.5px 8px 0 #4bd5ee33'
-                : '0 8px 40px 0 #0002',
-              padding: '48px 36px 36px 36px',
-              minWidth: '340px',
-              maxWidth: '95vw',
-              width: '420px',
-              textAlign: 'center',
-              border: `2px solid ${settings.theme === 'dark' ? '#ffd700' : '#b8860b'}`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}>
-              <h2 style={{
-                fontSize: '2.2rem',
-                color: '#ffd700',
-                marginBottom: '1.2rem',
-                letterSpacing: '2px',
-                fontWeight: 700,
-                textShadow: '0 0 12px #ffd70099'
-              }}>
-                Game Paused
-              </h2>
-              <div style={{
-                fontSize: '1.1rem',
-                color: settings.theme === 'dark' ? '#e0e0e0' : '#333',
-                marginBottom: '2.2rem',
-                lineHeight: 1.7,
-                letterSpacing: '0.5px'
-              }}>
-                Press <b>ESC</b> or <b>Resume</b> to continue.
+      {gameOver ? (
+        <div className="ts-overlay">
+          <div className="ts-overlay-card">
+            <div className="ts-overlay-card__header">
+              <div>
+                <span className="ts-badge">result</span>
+                <h2 className="ts-overlay-title" style={{ marginTop: 14 }}>{gameOverReason}</h2>
               </div>
-              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                <button
-                  onClick={handlePauseToggle}
-                  style={{
-                    padding: '12px 24px',
-                    fontSize: '1.1rem',
-                    backgroundColor: '#ffd700',
-                    color: '#181d26',
-                    border: 'none',
-                    borderRadius: '25px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    boxShadow: '0 0 15px #ffd70077',
-                    letterSpacing: '1px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  ▶️ Resume
-                </button>
-                <button
-                  onClick={handleReplay}
-                  style={{
-                    padding: '12px 24px',
-                    fontSize: '1.1rem',
-                    backgroundColor: settings.theme === 'dark' ? '#4bd5ee' : '#0087c6',
-                    color: settings.theme === 'dark' ? '#181d26' : '#fff',
-                    border: 'none',
-                    borderRadius: '25px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    boxShadow: settings.theme === 'dark'
-                      ? '0 0 10px #4bd5ee77'
-                      : '0 0 10px #0087c677',
-                    letterSpacing: '1px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  🔄 Replay
-                </button>
+              <span className="ts-chip">{playerName?.trim() || localStorage.getItem('typingGamePlayerName') || 'anon'}</span>
+            </div>
+
+            <div className="ts-score-grid ts-score-grid--compact">
+              <div className="ts-score-card">
+                <span className="ts-stat__label">Destroyed</span>
+                <strong>{destroyed}</strong>
+              </div>
+              <div className="ts-score-card">
+                <span className="ts-stat__label">Best streak</span>
+                <strong>{bestStreak}</strong>
+              </div>
+              <div className="ts-score-card">
+                <span className="ts-stat__label">WPM</span>
+                <strong>{wpm}</strong>
+              </div>
+              <div className="ts-score-card">
+                <span className="ts-stat__label">Accuracy</span>
+                <strong>{accuracy}%</strong>
               </div>
             </div>
+
+            <div className="ts-scoreboard">
+              {leaderboard.slice(0, 5).map((entry, index) => (
+                <div key={`${entry.id}-${index}`} className={`ts-scoreboard__row ${entry.highlight ? 'is-highlight' : ''}`}>
+                  <strong>#{index + 1}</strong>
+                  <span>{entry.name}</span>
+                  <span>{entry.wpm} WPM</span>
+                  <span>{entry.accuracy}%</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="ts-score-actions">
+              <button className="ts-primary-button" onClick={startGame}>replay</button>
+              <button className="ts-secondary-button" onClick={onExit}>menu</button>
+            </div>
           </div>
-        )}
-      </div>
-      <style>{`
-        @keyframes gradientBG {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes meteorFloat1 {
-          0% { transform: translateY(0);}
-          50% { transform: translateY(-12px);}
-          100% { transform: translateY(0);}
-        }
-        @keyframes meteorFloat2 {
-          0% { transform: translateY(0);}
-          50% { transform: translateY(10px);}
-          100% { transform: translateY(0);}
-        }
-        @keyframes meteorFloat3 {
-          0% { transform: translateY(0);}
-          50% { transform: translateY(-8px);}
-          100% { transform: translateY(0);}
-        }
-        @keyframes meteorFloat4 {
-          0% { transform: translateY(0);}
-          50% { transform: translateY(8px);}
-          100% { transform: translateY(0);}
-        }
-        @keyframes wordFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
-        }
-        @keyframes laserShoot {
-          0% { transform: scaleX(0); opacity: 1; }
-          100% { transform: scaleX(1); opacity: 0; }
-        }
-        .word-container {
-          animation: wordFloat 2s ease-in-out infinite;
-        }
-        .word-matched {
-          animation: destroy 0.3s ease-out forwards !important;
-        }
-        @keyframes destroy {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.2); opacity: 0.5; }
-          100% { transform: scale(0); opacity: 0; }
-        }
-        .stat-box {
-          transform: translateY(0);
-          transition: transform 0.2s ease;
-        }
-        .stat-box:hover {
-          transform: translateY(-2px);
-        }
-        .game-button {
-          transition: all 0.3s ease;
-          transform: translateY(0);
-        }
-        .game-button:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 5px 20px ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.4)' : 'rgba(0, 135, 198, 0.3)'};
-        }
-        @keyframes wordEnter {
-          from {
-            transform: translateX(50px);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .word-enter {
-          animation: wordEnter 0.3s ease-out forwards;
-        }
-        @keyframes shine {
-          0% { background-position: -100px; }
-          100% { background-position: 200px; }
-        }
-        .input-shine {
-          position: relative;
-          overflow: hidden;
-          background: linear-gradient(90deg, rgba(75,213,238,0.08) 0%, rgba(75,213,238,0.18) 100%);
-        }
-        .input-shine::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100px;
-          width: 50px;
-          height: 100%;
-          background: linear-gradient(
-            90deg, 
-            transparent, 
-            ${settings.theme === 'dark' ? 'rgba(75, 213, 238, 0.2)' : 'rgba(255, 255, 255, 0.4)'},
-            transparent
-          );
-          animation: shine 3s infinite linear;
-        }
-        @keyframes floatShip {
-          0%, 100% { transform: rotate(45deg) translateY(0); }
-          50% { transform: rotate(45deg) translateY(-10px); }
-        }
-        /* Virtual keyboard style improvements */
-        .virtual-keyboard {
-          background: ${settings.theme === 'dark' ? 'rgba(30,35,45,0.95)' : 'rgba(255,255,255,0.95)'};
-          border-radius: 18px;
-          box-shadow: 0 4px 24px ${settings.theme === 'dark' ? '#4bd5ee33' : '#0087c633'};
-          padding: 18px 18px 10px 18px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          border: 1.5px solid ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'};
-        }
-        .virtual-keyboard-row {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 6px;
-        }
-        .virtual-key {
-          background: ${settings.theme === 'dark' ? '#232b3b' : '#e3f2fd'};
-          color: ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'};
-          border: none;
-          border-radius: 8px;
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 1.1rem;
-          padding: 8px 13px;
-          margin: 0 2px;
-          box-shadow: 0 1px 4px ${settings.theme === 'dark' ? '#4bd5ee22' : '#0087c622'};
-          transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-        }
-        .virtual-key.active {
-          background: ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'};
-          color: ${settings.theme === 'dark' ? '#181d26' : '#fff'};
-          box-shadow: 0 0 10px ${settings.theme === 'dark' ? '#4bd5ee' : '#0087c6'};
-          font-weight: bold;
-        }
-        .word-fade-in {
-          animation: wordFadeIn 0.25s cubic-bezier(.4,0,.2,1);
-        }
-        .word-fade-out {
-          animation: wordFadeOut 0.45s cubic-bezier(.4,0,.2,1) forwards;
-        }
-        @keyframes wordFadeIn {
-          from { opacity: 0; transform: scale(0.95) translateY(10px);}
-          to { opacity: 1; transform: scale(1) translateY(0);}
-        }
-        @keyframes wordFadeOut {
-          from { opacity: 1; }
-          to { opacity: 0; }
-        }
-      `}</style>
-    </div>
+        </div>
+      ) : null}
+    </SpaceBackdrop>
   );
 };
 
-// Add FloatingMeteors definition here (before GameScreen)
-const FloatingMeteors = ({ theme }) => (
-  <>
-    <div style={{
-      position: 'absolute',
-      top: '8%',
-      left: '3%',
-      fontSize: '2.2rem',
-      opacity: 0.7,
-      filter: 'drop-shadow(0 0 12px #ff9800)',
-      pointerEvents: 'none',
-      userSelect: 'none',
-      animation: 'meteorFloat1 7s ease-in-out infinite'
-    }}>☄️</div>
-    <div style={{
-      position: 'absolute',
-      bottom: '10%',
-      right: '4%',
-      fontSize: '2.1rem',
-      opacity: 0.7,
-      filter: 'drop-shadow(0 0 10px #ff9800)',
-      pointerEvents: 'none',
-      userSelect: 'none',
-      animation: 'meteorFloat2 8s ease-in-out infinite'
-    }}>☄️</div>
-    <div style={{
-      position: 'absolute',
-      top: '15%',
-      right: '7%',
-      fontSize: '1.7rem',
-      opacity: 0.6,
-      filter: 'drop-shadow(0 0 8px #ff9800)',
-      pointerEvents: 'none',
-      userSelect: 'none',
-      animation: 'meteorFloat3 9s ease-in-out infinite'
-    }}>☄️</div>
-    <div style={{
-      position: 'absolute',
-      bottom: '12%',
-      left: '7%',
-      fontSize: '1.5rem',
-      opacity: 0.6,
-      filter: 'drop-shadow(0 0 8px #ff9800)',
-      pointerEvents: 'none',
-      userSelect: 'none',
-      animation: 'meteorFloat4 10s ease-in-out infinite'
-    }}>☄️</div>
-  </>
-);
+export default GameScreen;
