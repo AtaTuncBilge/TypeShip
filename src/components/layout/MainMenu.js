@@ -3,7 +3,7 @@ import { useGameContext } from '../../context/GameContext';
 import { readLeaderboard } from '../../utils/localLeaderboard';
 import { MeteorSprite, ShipSprite, SpaceBackdrop, TypeShipMark } from '../game/SpaceDecor';
 import TypingToolbar from '../game/TypingToolbar';
-import { getPreviewTokens } from '../../constants/typingCatalog';
+import { getLanguageById, getPreviewTokens, TYPING_CONTEXTS } from '../../constants/typingCatalog';
 
 export const MainMenu = ({ playerName = '', onNameChange, onPlay, onSettings, onLeaderboard }) => {
   const { audioManager, settings } = useGameContext();
@@ -20,6 +20,11 @@ export const MainMenu = ({ playerName = '', onNameChange, onPlay, onSettings, on
   }, []);
 
   const bestPilot = useMemo(() => leaderboard[0], [leaderboard]);
+  const activeLanguage = useMemo(() => getLanguageById(settings?.language), [settings?.language]);
+  const activeContext = useMemo(
+    () => TYPING_CONTEXTS.find((context) => context.id === settings?.typingContext) || TYPING_CONTEXTS[0],
+    [settings?.typingContext],
+  );
   const previewTokens = useMemo(
     () => getPreviewTokens(settings?.language, settings?.typingContext, 6),
     [settings?.language, settings?.typingContext],
@@ -67,6 +72,34 @@ export const MainMenu = ({ playerName = '', onNameChange, onPlay, onSettings, on
                 </p>
               </div>
             </div>
+
+            <div className="ts-menu__briefing">
+              <article className="ts-brief-card">
+                <span className="ts-stat__label">Language</span>
+                <strong className="ts-brief-card__value">{activeLanguage.flag} {activeLanguage.label}</strong>
+                <span className="ts-caption">Switchable mid-session from the toolbar.</span>
+              </article>
+              <article className="ts-brief-card">
+                <span className="ts-stat__label">Context</span>
+                <strong className="ts-brief-card__value">{activeContext.label}</strong>
+                <span className="ts-caption">Words, quotes, punctuation, numbers, or code.</span>
+              </article>
+              <article className="ts-brief-card">
+                <span className="ts-stat__label">Best Run</span>
+                <strong className="ts-brief-card__value">{bestPilot ? `${bestPilot.wpm} WPM` : 'No benchmark'}</strong>
+                <span className="ts-caption">{bestPilot ? `${bestPilot.name} at ${bestPilot.accuracy}% accuracy` : 'Launch the first clean run.'}</span>
+              </article>
+            </div>
+
+            <div className="ts-menu__preview">
+              <div className="ts-menu__preview-header">
+                <span className="ts-badge">live sample</span>
+                <span className="ts-chip">{activeContext.label.toLowerCase()} stream</span>
+              </div>
+              <div className="ts-menu__preview-line" dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
+                {previewTokens.join('  ')}
+              </div>
+            </div>
           </div>
 
           <div className="ts-menu__hero-visual ts-menu__hero-visual--clean">
@@ -85,6 +118,21 @@ export const MainMenu = ({ playerName = '', onNameChange, onPlay, onSettings, on
 
         <div className="ts-command ts-command--clean">
           <div className="ts-command__form ts-command__form--clean">
+            <div className="ts-command__header">
+              <div className="ts-command__copy">
+                <span className="ts-badge">launch console</span>
+                <h2 className="ts-heading ts-heading--compact">Mission prep</h2>
+                <p className="ts-caption">
+                  Set your call sign, keep the toolbar tuned to the language and context you want, and launch straight into the adaptive run.
+                </p>
+              </div>
+              <div className="ts-command__status">
+                <span className="ts-chip">90s mission</span>
+                <span className="ts-chip">adaptive spawn</span>
+                <span className="ts-chip">{settings?.soundEnabled ? 'immersive audio' : 'silent profile'}</span>
+              </div>
+            </div>
+
             <div>
               <label className="ts-stat__label" htmlFor="player-name">Call sign</label>
               <input
@@ -98,12 +146,12 @@ export const MainMenu = ({ playerName = '', onNameChange, onPlay, onSettings, on
                 }}
                 placeholder="e.g. red-7"
               />
-              {nameError ? <p className="ts-caption is-danger" style={{ marginTop: 8 }}>{nameError}</p> : null}
+              {nameError ? <p className="ts-caption is-danger ts-command__error">{nameError}</p> : null}
             </div>
 
             <div className="ts-command__meta">
               <span className="ts-chip">
-                {bestPilot ? `best ${bestPilot.name} ${bestPilot.wpm}wpm` : 'best no runs yet'}
+                {bestPilot ? `best ${bestPilot.name} ${bestPilot.wpm} wpm` : 'best no runs yet'}
               </span>
               {previewTokens.map((token) => (
                 <span key={token} className="ts-chip ts-chip--ghost">{token}</span>
@@ -128,8 +176,14 @@ export const MainMenu = ({ playerName = '', onNameChange, onPlay, onSettings, on
                   onLeaderboard();
                 }}
               >
-                board
+                leaderboard
               </button>
+            </div>
+
+            <div className="ts-command__footer">
+              <span>typing starts the moment you launch</span>
+              <span>runs save locally to the board</span>
+              <span>toolbar changes stay live everywhere</span>
             </div>
           </div>
         </div>

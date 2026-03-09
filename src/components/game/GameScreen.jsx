@@ -742,6 +742,7 @@ export const GameScreen = ({ onExit, playerName }) => {
   const threats = useMemo(() => [...meteors].sort((a, b) => getTimeToImpact(a) - getTimeToImpact(b)).slice(0, 2), [meteors]);
   const quoteFallback = activeContext?.id === 'quote' && !activeLanguage.hasQuotes;
   const typedSegments = useMemo(() => splitGraphemes(typed), [typed]);
+  const pilotLabel = playerName?.trim() || localStorage.getItem('typingGamePlayerName') || 'anon';
   const timeProgress = useMemo(
     () => clamp((timeLeft / profile.sessionSeconds) * 100, 0, 100),
     [profile.sessionSeconds, timeLeft],
@@ -843,11 +844,12 @@ export const GameScreen = ({ onExit, playerName }) => {
         <div className="ts-hud-card ts-hud-card--brand">
           <div className="ts-console__top">
             <span className="ts-badge">standard mission</span>
-            <span className="ts-chip">{playerName?.trim() || localStorage.getItem('typingGamePlayerName') || 'anon'}</span>
+            <span className="ts-chip">{pilotLabel}</span>
           </div>
           <div className="ts-console__target" style={{ marginTop: 12 }}>
-            {activeLanguage.flag} <strong>{activeLanguage.label}</strong> · {activeContext?.label || 'Words'}
+            {activeLanguage.flag} <strong>{activeLanguage.label}</strong> / {activeContext?.label || 'Words'}
           </div>
+          <div className="ts-hud-card__subline">adaptive fill / hidden live input / precision targeting</div>
           <div className={`ts-hull-meter ${hull <= 34 ? 'is-critical' : ''}`}>
             <span style={{ width: `${clamp(hull, 0, 100)}%` }} />
           </div>
@@ -918,7 +920,7 @@ export const GameScreen = ({ onExit, playerName }) => {
         <div className="ts-console__footer">
           <span>tab clear lock</span>
           <span>esc pause</span>
-          <span>hidden live input</span>
+          <span>click anywhere to refocus</span>
         </div>
       </div>
 
@@ -932,6 +934,10 @@ export const GameScreen = ({ onExit, playerName }) => {
               </div>
               <span className="ts-chip">{activeLanguage.flag} {activeLanguage.label}</span>
             </div>
+
+            <p className="ts-overlay-copy">
+              The field stays populated at all times. Clear faster and the mission pressure scales with you without forcing a manual difficulty pick.
+            </p>
 
             <div className="ts-overlay-meta">
               <div className="ts-score-card">
@@ -948,6 +954,12 @@ export const GameScreen = ({ onExit, playerName }) => {
               </div>
             </div>
 
+            <div className="ts-overlay-note">
+              <span className="ts-chip">pilot {pilotLabel}</span>
+              <span className="ts-chip">{quoteFallback ? 'quote fallback active' : 'native context ready'}</span>
+              <span className="ts-chip">tab clear / esc pause</span>
+            </div>
+
             <div className="ts-overlay-actions">
               <button className="ts-primary-button" onClick={startGame}>start run</button>
               <button className="ts-secondary-button" onClick={onExit}>menu</button>
@@ -959,8 +971,14 @@ export const GameScreen = ({ onExit, playerName }) => {
       {isPaused && isGameActive && !gameOver ? (
         <div className="ts-overlay">
           <div className="ts-overlay-card">
-            <span className="ts-badge">pause</span>
-            <h2 className="ts-overlay-title" style={{ marginTop: 14 }}>Paused</h2>
+            <div className="ts-overlay-card__header">
+              <div>
+                <span className="ts-badge">pause</span>
+                <h2 className="ts-overlay-title" style={{ marginTop: 14 }}>Paused</h2>
+              </div>
+              <span className="ts-chip">{pilotLabel}</span>
+            </div>
+            <p className="ts-overlay-copy">Your run is frozen exactly where it stopped. Resume when you want the pressure back.</p>
             <div className="ts-overlay-actions">
               <button className="ts-primary-button" onClick={togglePause}>resume</button>
               <button className="ts-secondary-button" onClick={onExit}>menu</button>
@@ -977,8 +995,10 @@ export const GameScreen = ({ onExit, playerName }) => {
                 <span className="ts-badge">result</span>
                 <h2 className="ts-overlay-title" style={{ marginTop: 14 }}>{gameOverReason}</h2>
               </div>
-              <span className="ts-chip">{playerName?.trim() || localStorage.getItem('typingGamePlayerName') || 'anon'}</span>
+              <span className="ts-chip">{pilotLabel}</span>
             </div>
+
+            <p className="ts-overlay-copy">Run archived locally. Replay instantly or return to the menu to retune language, context, and audio.</p>
 
             <div className="ts-score-grid ts-score-grid--compact">
               <div className="ts-score-card">

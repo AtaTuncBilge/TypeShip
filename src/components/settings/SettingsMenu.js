@@ -44,7 +44,10 @@ const SettingsMenu = ({ onBack, playerName = '', onNameChange }) => {
 
         <div className="ts-settings__grid ts-settings__grid--clean">
           <div className="ts-settings-card ts-settings-card--full">
-            <span className="ts-stat__label">Call sign</span>
+            <div className="ts-settings-card__copy">
+              <span className="ts-stat__label">Call sign</span>
+              <p className="ts-caption">This name is used for every locally saved result and leaderboard highlight.</p>
+            </div>
             <input
               className="ts-input"
               value={name}
@@ -55,26 +58,39 @@ const SettingsMenu = ({ onBack, playerName = '', onNameChange }) => {
               }}
               placeholder="e.g. red-7"
             />
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
+            <div className="ts-settings-card__actions">
               <button className="ts-primary-button" onClick={saveName}>save</button>
               <span className={`ts-chip ${savedLabel.includes('need') ? 'is-danger' : ''}`}>{savedLabel}</span>
             </div>
           </div>
 
           <div className="ts-settings-card">
-            <span className="ts-stat__label">Typing stack</span>
-            <div style={{ marginTop: 16, display: 'grid', gap: 12 }}>
-              <span className="ts-chip">{activeLanguage.flag} {activeLanguage.label}</span>
-              <span className="ts-chip">{activeContext.label.toLowerCase()} context</span>
-              <p className="ts-caption" style={{ margin: 0 }}>
-                Search languages from the toolbar above. Context changes stay live across menu and gameplay.
-              </p>
+            <div className="ts-settings-card__copy">
+              <span className="ts-stat__label">Typing stack</span>
+              <p className="ts-caption">Search and swap from the toolbar above. Changes apply instantly to menu previews and the live run.</p>
             </div>
+            <dl className="ts-settings-card__stack">
+              <div>
+                <dt>Language</dt>
+                <dd>{activeLanguage.flag} {activeLanguage.label}</dd>
+              </div>
+              <div>
+                <dt>Context</dt>
+                <dd>{activeContext.label}</dd>
+              </div>
+              <div>
+                <dt>Flow</dt>
+                <dd>adaptive standard mission</dd>
+              </div>
+            </dl>
           </div>
 
           <div className="ts-settings-card">
-            <span className="ts-stat__label">Sound</span>
-            <div style={{ marginTop: 16, display: 'grid', gap: 16 }}>
+            <div className="ts-settings-card__copy">
+              <span className="ts-stat__label">Sound</span>
+              <p className="ts-caption">Fine tune the arcade layer without affecting the typing flow.</p>
+            </div>
+            <div className="ts-settings-card__section">
               <div className="ts-toggle">
                 <button
                   type="button"
@@ -85,7 +101,7 @@ const SettingsMenu = ({ onBack, playerName = '', onNameChange }) => {
                 <span>{settings?.soundEnabled ? 'enabled' : 'muted'}</span>
               </div>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div className="ts-settings-card__metric">
                   <span className="ts-stat__label">Volume</span>
                   <span>{Math.round(Number(settings?.volume ?? 0.7) * 100)}%</span>
                 </div>
@@ -100,6 +116,27 @@ const SettingsMenu = ({ onBack, playerName = '', onNameChange }) => {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="ts-settings-card">
+            <div className="ts-settings-card__copy">
+              <span className="ts-stat__label">Match feel</span>
+              <p className="ts-caption">The run is always-on. Meteor density ramps with your speed so the field never feels empty.</p>
+            </div>
+            <dl className="ts-settings-card__stack">
+              <div>
+                <dt>Input</dt>
+                <dd>hidden live focus</dd>
+              </div>
+              <div>
+                <dt>Metrics</dt>
+                <dd>WPM, accuracy, streak</dd>
+              </div>
+              <div>
+                <dt>Targeting</dt>
+                <dd>closest matching meteor</dd>
+              </div>
+            </dl>
           </div>
 
           <div className="ts-settings-card ts-settings-card--art">
