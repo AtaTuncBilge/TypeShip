@@ -74,22 +74,6 @@ export interface SettingsMenuProps {
   onBack: () => void;
 }
 
-export interface TypingGameProps {
-  onComplete?: () => void;
-}
-
-export interface TextDisplayProps {
-  text: string;
-  userInput: string;
-}
-
-export interface TypingInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  completed: boolean;
-  audioManager: AudioManager;
-}
-
 // Define or export the AudioManager interface to resolve the errors:
 export interface AudioManager {
   playSound(soundName: string): void;
