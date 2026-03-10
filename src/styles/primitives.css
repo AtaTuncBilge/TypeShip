@@ -12,11 +12,12 @@
   overflow: hidden;
   border: 1px solid var(--ts-border);
   background:
-    linear-gradient(135deg, rgba(255, 58, 84, 0.05), rgba(255, 58, 84, 0) 38%),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.018));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), var(--ts-shadow-card);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.012)),
+    linear-gradient(135deg, var(--ts-panel-tint), rgba(255, 30, 60, 0) 42%),
+    var(--ts-panel-bg);
+  box-shadow: var(--ts-shadow-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .ts-card::after,
@@ -32,7 +33,7 @@
   left: 18px;
   right: 18px;
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.08), transparent);
   pointer-events: none;
 }
 
@@ -64,7 +65,7 @@
 
 .ts-badge {
   padding: 6px 12px;
-  background: rgba(255, 30, 60, 0.08);
+  background: rgba(255, 30, 60, 0.06);
   border: 1px solid var(--ts-border-strong);
   color: var(--ts-accent-bright);
   font-family: var(--ts-font-heading);
@@ -76,7 +77,7 @@
 
 .ts-chip {
   padding: 6px 12px;
-  background: var(--ts-surface);
+  background: rgba(255, 255, 255, 0.024);
   border: 1px solid var(--ts-border);
   color: var(--ts-text-soft);
   font-size: 0.76rem;
@@ -84,14 +85,14 @@
 }
 
 .ts-chip--ghost {
-  background: rgba(255, 255, 255, 0.025);
-  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.015);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .ts-chip--threat {
   color: var(--ts-text);
-  background: rgba(255, 30, 60, 0.08);
-  border-color: rgba(255, 30, 60, 0.16);
+  background: rgba(255, 30, 60, 0.06);
+  border-color: rgba(255, 30, 60, 0.14);
 }
 
 .ts-progress {

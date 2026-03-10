@@ -7,9 +7,9 @@
   align-items: center;
   justify-content: center;
   padding: 22px;
-  background: rgba(2, 2, 3, 0.78);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: rgba(4, 5, 8, 0.76);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .ts-modal {
@@ -20,7 +20,7 @@
 .ts-overlay-card,
 .ts-modal__card {
   width: min(760px, 100%);
-  padding: 26px;
+  padding: 28px;
 }
 
 .ts-overlay-meta,

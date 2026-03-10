@@ -26,21 +26,22 @@
 }
 
 .ts-game__arena::before {
-  left: -8%;
+  left: -10%;
   top: 16%;
-  width: 42%;
-  height: 54%;
+  width: 28%;
+  height: 34%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 30, 60, 0.14) 0%, rgba(255, 30, 60, 0.05) 36%, transparent 72%);
-  filter: blur(34px);
-  opacity: 0.85;
+  background: radial-gradient(circle, rgba(255, 30, 60, 0.08) 0%, rgba(255, 30, 60, 0.02) 40%, transparent 72%);
+  filter: blur(44px);
+  opacity: 0.6;
 }
 
 .ts-game__arena::after {
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 16%, transparent 84%, rgba(255, 255, 255, 0.02)),
-    radial-gradient(circle at 76% 32%, rgba(255, 58, 84, 0.08) 0%, transparent 22%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 14%, transparent 86%, rgba(255, 255, 255, 0.015)),
+    radial-gradient(circle at 76% 22%, rgba(255, 58, 84, 0.045) 0%, transparent 18%),
+    radial-gradient(circle at 18% 82%, rgba(255, 30, 60, 0.03) 0%, transparent 18%);
   opacity: 0.9;
 }
 
@@ -60,11 +61,11 @@
 }
 
 .ts-hud-card {
-  padding: 14px 16px;
+  padding: 12px 14px;
 }
 
 .ts-hud-card--brand {
-  max-width: 360px;
+  max-width: 320px;
 }
 
 .ts-hud-card__subline {
@@ -79,7 +80,7 @@
 .ts-hud__stats--clean {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .ts-hull-meter,

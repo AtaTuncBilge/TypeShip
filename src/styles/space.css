@@ -4,10 +4,11 @@
   height: 100%;
   overflow: hidden;
   background:
-    radial-gradient(ellipse at top center, rgba(255, 56, 87, 0.18) 0%, rgba(255, 56, 87, 0) 36%),
-    radial-gradient(ellipse at 14% 18%, rgba(255, 255, 255, 0.04) 0%, transparent 22%),
-    radial-gradient(ellipse at 84% 20%, rgba(255, 30, 60, 0.12) 0%, transparent 24%),
-    radial-gradient(ellipse at top center, #0d0d12 0%, #050506 52%, #020203 100%);
+    radial-gradient(ellipse at top center, rgba(255, 56, 87, 0.08) 0%, rgba(255, 56, 87, 0) 30%),
+    radial-gradient(ellipse at 18% 18%, rgba(255, 255, 255, 0.03) 0%, transparent 20%),
+    radial-gradient(ellipse at 84% 18%, rgba(255, 30, 60, 0.05) 0%, transparent 18%),
+    radial-gradient(ellipse at 18% 88%, rgba(255, 255, 255, 0.025) 0%, transparent 20%),
+    linear-gradient(180deg, #121318 0%, #090a0d 48%, #030304 100%);
 }
 
 .ts-space-shell::before,
@@ -31,7 +32,7 @@
     linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 72px 72px;
-  opacity: 0.2;
+  opacity: 0.1;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.6) 44%, transparent);
 }
 
@@ -43,11 +44,11 @@
 
 .ts-space-layer--nebula {
   background:
-    radial-gradient(ellipse at top center, rgba(255, 30, 60, 0.18) 0%, transparent 42%),
-    radial-gradient(ellipse at 10% 32%, rgba(139, 20, 40, 0.12) 0%, transparent 34%),
-    radial-gradient(ellipse at 88% 38%, rgba(100, 15, 30, 0.11) 0%, transparent 32%),
-    radial-gradient(ellipse at 34% 110%, rgba(255, 30, 60, 0.08) 0%, transparent 38%);
-  filter: blur(110px);
+    radial-gradient(ellipse at top center, rgba(255, 30, 60, 0.08) 0%, transparent 36%),
+    radial-gradient(ellipse at 10% 32%, rgba(139, 20, 40, 0.07) 0%, transparent 28%),
+    radial-gradient(ellipse at 88% 38%, rgba(100, 15, 30, 0.06) 0%, transparent 26%),
+    radial-gradient(ellipse at 34% 110%, rgba(255, 30, 60, 0.04) 0%, transparent 32%);
+  filter: blur(130px);
   animation: ts-nebula-drift 14s ease-in-out infinite alternate;
 }
 
@@ -85,7 +86,7 @@
     linear-gradient(0deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: auto, 112px 112px, 112px 112px;
   transform: perspective(920px) rotateX(78deg);
-  opacity: 0.3;
+  opacity: 0.16;
 }
 
 .ts-space-layer--noise {
@@ -110,11 +111,11 @@
   right: 4%;
   width: clamp(180px, 22vw, 320px);
   aspect-ratio: 1;
-  opacity: 0.34;
+  opacity: 0.24;
   background:
     radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.22) 0%, transparent 20%),
     radial-gradient(circle at 34% 34%, #8f1126 0%, #4e0a13 44%, #190408 72%, transparent 74%);
-  box-shadow: inset -20px -24px 46px rgba(0, 0, 0, 0.42), 0 0 90px rgba(255, 30, 60, 0.08);
+  box-shadow: inset -20px -24px 46px rgba(0, 0, 0, 0.42), 0 0 72px rgba(255, 30, 60, 0.04);
   animation: ts-planet-float 18s ease-in-out infinite alternate;
 }
 
@@ -132,7 +133,7 @@
   bottom: 9%;
   width: clamp(140px, 18vw, 240px);
   aspect-ratio: 1;
-  opacity: 0.26;
+  opacity: 0.18;
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.18) 0%, transparent 18%),
     radial-gradient(circle at 36% 34%, #2a2e38 0%, #11141b 46%, #050608 72%, transparent 74%);
@@ -163,7 +164,7 @@
   left: 14%;
   width: clamp(70px, 8vw, 110px);
   aspect-ratio: 1;
-  opacity: 0.22;
+  opacity: 0.16;
   background:
     radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.28) 0%, transparent 18%),
     radial-gradient(circle at 36% 32%, #dadde3 0%, #747a85 54%, #22252a 100%);
@@ -176,7 +177,7 @@
   height: 2px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.72), rgba(255, 30, 60, 0));
-  opacity: 0.18;
+  opacity: 0.1;
   filter: blur(0.4px);
   --ts-streak-angle: -18deg;
 }

@@ -155,9 +155,10 @@
   }
 
   .ts-game__hud {
-    top: 164px;
+    top: 146px;
     left: 12px;
     right: 12px;
+    gap: 8px;
   }
 
   .ts-console {
@@ -166,10 +167,14 @@
     bottom: 12px;
     width: auto;
     transform: none;
+    max-height: 36vh;
+    overflow-y: auto;
+    padding: 12px;
   }
 
   .ts-hud__stats--clean {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .ts-scoreboard__row,
@@ -192,5 +197,21 @@
   .ts-overlay-card,
   .ts-modal__card {
     padding: 22px;
+  }
+
+  .ts-console__status {
+    padding: 8px 10px;
+    font-size: 0.76rem;
+  }
+
+  .ts-console__readout {
+    min-height: 52px;
+    padding: 12px 14px;
+    font-size: 1rem;
+  }
+
+  .ts-console__footer {
+    gap: 8px;
+    font-size: 0.72rem;
   }
 }

@@ -32,7 +32,7 @@
 }
 
 .ts-primary-button {
-  background: var(--ts-accent);
+  background: linear-gradient(180deg, var(--ts-accent-bright), var(--ts-accent));
   color: #fff;
   box-shadow: var(--ts-shadow-button);
 }
@@ -44,7 +44,7 @@
 
 .ts-secondary-button,
 .ts-ghost-button {
-  background: var(--ts-surface);
+  background: rgba(255, 255, 255, 0.024);
   color: var(--ts-text);
   border: 1px solid var(--ts-border);
 }
@@ -60,7 +60,7 @@
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.02);
   color: var(--ts-text);
   outline: none;
   transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
