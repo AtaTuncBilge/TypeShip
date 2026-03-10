@@ -71,6 +71,63 @@ const formatWordLabel = (value, locale) => {
   return locale ? value.toLocaleUpperCase(locale) : value.toLocaleUpperCase();
 };
 
+const getTypingStateClassName = (state, isOverflow = false) => {
+  const classes = [];
+
+  if (state === 'correct') {
+    classes.push('is-correct');
+  } else if (state === 'incorrect') {
+    classes.push('is-incorrect');
+  } else {
+    classes.push('is-untyped');
+  }
+
+  if (isOverflow) {
+    classes.push('is-overflow');
+  }
+
+  return classes.join(' ');
+};
+
+const buildTypingFeedback = (targetText, typedValue, languageId) => {
+  const targetSegments = splitGraphemes(targetText);
+  const typedSegments = splitGraphemes(typedValue);
+
+  const comparedSegments = targetSegments.map((segment, index) => {
+    if (index >= typedSegments.length) {
+      return {
+        key: `target-${index}`,
+        segment,
+        state: 'untyped',
+        isOverflow: false,
+      };
+    }
+
+    return {
+      key: `target-${index}`,
+      segment,
+      state: normalizeTypedValue(typedSegments[index], languageId) === normalizeTypedValue(segment, languageId)
+        ? 'correct'
+        : 'incorrect',
+      isOverflow: false,
+    };
+  });
+
+  const overflowSegments = typedSegments.slice(targetSegments.length).map((segment, index) => ({
+    key: `overflow-${index}`,
+    segment,
+    state: 'incorrect',
+    isOverflow: true,
+  }));
+
+  return {
+    displaySegments: [...comparedSegments, ...overflowSegments],
+    targetSegments: comparedSegments,
+    targetLength: targetSegments.length,
+    typedLength: typedSegments.length,
+  };
+};
+
 export const GameScreen = ({ onExit, playerName }) => {
   const { settings = {}, audioManager } = useGameContext();
   const profile = useMemo(() => resolveDifficulty(), []);
@@ -741,7 +798,18 @@ export const GameScreen = ({ onExit, playerName }) => {
   const activeTarget = useMemo(() => meteors.find((meteor) => meteor.id === activeTargetId) || null, [activeTargetId, meteors]);
   const threats = useMemo(() => [...meteors].sort((a, b) => getTimeToImpact(a) - getTimeToImpact(b)).slice(0, 2), [meteors]);
   const quoteFallback = activeContext?.id === 'quote' && !activeLanguage.hasQuotes;
-  const typedSegments = useMemo(() => splitGraphemes(typed), [typed]);
+  const activeTypingFeedback = useMemo(
+    () => buildTypingFeedback(activeTarget?.text || '', typed, activeLanguage.id),
+    [activeLanguage.id, activeTarget?.text, typed],
+  );
+  const activeTypingProgress = useMemo(
+    () => (
+      activeTypingFeedback.targetLength
+        ? clamp((activeTypingFeedback.typedLength / activeTypingFeedback.targetLength) * 100, 0, 100)
+        : 0
+    ),
+    [activeTypingFeedback.targetLength, activeTypingFeedback.typedLength],
+  );
   const pilotLabel = playerName?.trim() || localStorage.getItem('typingGamePlayerName') || 'anon';
   const timeProgress = useMemo(
     () => clamp((timeLeft / profile.sessionSeconds) * 100, 0, 100),
@@ -768,7 +836,15 @@ export const GameScreen = ({ onExit, playerName }) => {
           const isActive = meteor.id === activeTargetId;
           const danger = meteor.x < shipPoint.x + 260;
           const meteorSegments = splitGraphemes(meteor.text);
-          const progress = isActive ? clamp((typedSegments.length / meteorSegments.length) * 100, 0, 100) : 0;
+          const progress = isActive ? activeTypingProgress : 0;
+          const meteorDisplaySegments = isActive
+            ? activeTypingFeedback.targetSegments
+            : meteorSegments.map((segment, index) => ({
+                key: `idle-${index}`,
+                segment,
+                state: 'untyped',
+                isOverflow: false,
+              }));
 
           return (
             <div
@@ -789,20 +865,11 @@ export const GameScreen = ({ onExit, playerName }) => {
               {isActive ? <div className="ts-target-reticle" /> : null}
               <div className={`ts-meteor__label ${isActive ? 'is-active' : ''}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
                 <span className="ts-meteor__word">
-                  {meteorSegments.map((segment, index) => {
-                    if (!isActive || index >= typedSegments.length) {
-                      return <span key={`${meteor.id}-${index}`}>{segment}</span>;
-                    }
-
-                    const charClass = normalizeTypedValue(typedSegments[index], activeLanguage.id) === normalizeTypedValue(segment, activeLanguage.id)
-                      ? 'is-hit'
-                      : 'is-miss';
-                    return (
-                      <span key={`${meteor.id}-${index}`} className={charClass}>
-                        {segment}
-                      </span>
-                    );
-                  })}
+                  {meteorDisplaySegments.map(({ key, segment, state, isOverflow }) => (
+                    <span key={`${meteor.id}-${key}`} className={`ts-meteor__char ${getTypingStateClassName(state, isOverflow)}`}>
+                      {segment}
+                    </span>
+                  ))}
                 </span>
                 {isActive ? (
                   <div className="ts-meteor__progress">
@@ -902,8 +969,18 @@ export const GameScreen = ({ onExit, playerName }) => {
             ))
           )}
         </div>
-        <div className={`ts-console__readout ${typed ? '' : 'is-placeholder'}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
-          {typed || 'start typing to acquire a target'}
+        <div className={`ts-console__readout ${activeTarget ? '' : 'is-placeholder'}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
+          {activeTarget ? (
+            <span className="ts-console__word">
+              {activeTypingFeedback.displaySegments.map(({ key, segment, state, isOverflow }) => (
+                <span key={key} className={`ts-console__char ${getTypingStateClassName(state, isOverflow)}`}>
+                  {segment}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="ts-console__placeholder">start typing to acquire a target</span>
+          )}
         </div>
         <input
           ref={inputRef}

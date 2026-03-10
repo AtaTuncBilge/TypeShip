@@ -52,17 +52,23 @@
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
 }
 
-.ts-meteor__word span {
+.ts-meteor__char {
   display: inline-block;
+  color: var(--ts-char-untyped);
+  white-space: pre;
+  transition: color 120ms ease, opacity 120ms ease;
 }
 
-.ts-meteor__word .is-hit {
+.ts-meteor__char.is-correct {
   color: var(--ts-char-correct);
 }
 
-.ts-meteor__word .is-miss {
+.ts-meteor__char.is-incorrect {
   color: var(--ts-char-incorrect);
-  text-decoration: underline;
+}
+
+.ts-meteor__char.is-overflow {
+  opacity: 0.9;
 }
 
 .ts-target-reticle {
