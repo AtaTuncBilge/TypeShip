@@ -1,0 +1,117 @@
+.ts-overlay,
+.ts-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(2, 2, 3, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.ts-modal {
+  position: fixed;
+  z-index: 30;
+}
+
+.ts-overlay-card,
+.ts-modal__card {
+  width: min(760px, 100%);
+  padding: 26px;
+}
+
+.ts-overlay-meta,
+.ts-score-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ts-overlay-copy {
+  margin: 16px 0 0;
+  color: var(--ts-text-soft);
+  font-size: 0.96rem;
+  line-height: 1.65;
+  max-width: 56ch;
+}
+
+.ts-overlay-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.ts-overlay-meta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ts-score-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ts-score-card {
+  padding: 16px;
+}
+
+.ts-score-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.08rem;
+}
+
+.ts-overlay-actions,
+.ts-score-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.ts-scoreboard,
+.ts-leaderboard-table {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.ts-scoreboard__row,
+.ts-leaderboard-table__row {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.ts-scoreboard__row {
+  grid-template-columns: 44px minmax(0, 1fr) 90px 80px;
+}
+
+.ts-scoreboard__row.is-highlight,
+.ts-leaderboard-table__row.is-highlight {
+  border-color: var(--ts-border-strong);
+}
+
+.ts-leaderboard-table__row {
+  grid-template-columns: 44px minmax(0, 1fr) 80px 80px 96px;
+}
+
+.ts-leaderboard-table__row.is-header {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--ts-text-soft);
+  font-family: var(--ts-font-heading);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ts-empty-state {
+  padding: 24px;
+  text-align: center;
+}

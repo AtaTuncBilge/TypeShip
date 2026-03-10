@@ -1,0 +1,196 @@
+@media (max-width: 1180px) {
+  .ts-menu__frame,
+  .ts-loader__frame,
+  .ts-game__hud {
+    grid-template-columns: 1fr;
+  }
+
+  .ts-settings__grid--clean {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .ts-view,
+  .ts-game {
+    padding: 16px;
+  }
+
+  .ts-menu__frame,
+  .ts-loader__frame,
+  .ts-settings__panel {
+    min-height: calc(100vh - 32px);
+  }
+
+  .ts-command-actions,
+  .ts-settings__grid--clean,
+  .ts-overlay-meta,
+  .ts-score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ts-menu__briefing {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ts-command__header {
+    flex-direction: column;
+  }
+
+  .ts-command__status {
+    justify-content: flex-start;
+  }
+
+  .ts-menu__topbar {
+    justify-content: stretch;
+  }
+
+  .ts-menu__topbar .ts-toolbar,
+  .ts-game__toolbar,
+  .ts-settings__panel > .ts-toolbar {
+    width: 100%;
+  }
+
+  .ts-game__toolbar {
+    top: 16px;
+    right: 16px;
+  }
+
+  .ts-game__hud {
+    top: 86px;
+    left: 16px;
+    right: 16px;
+  }
+
+  .ts-hud__stats--clean {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ts-scoreboard__row,
+  .ts-leaderboard-table__row {
+    grid-template-columns: 40px minmax(0, 1fr) 78px 72px;
+  }
+
+  .ts-leaderboard-table__row span:nth-child(5),
+  .ts-leaderboard-table__row strong:nth-child(5) {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  body {
+    overflow-y: auto;
+  }
+
+  .ts-view,
+  .ts-game {
+    padding: 12px;
+  }
+
+  .ts-loader__status,
+  .ts-settings__header,
+  .ts-modal__header,
+  .ts-overlay-card__header,
+  .ts-console__top,
+  .ts-console__footer,
+  .ts-command__header,
+  .ts-command__footer,
+  .ts-overlay-actions,
+  .ts-score-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ts-menu__title-row,
+  .ts-loader__brand {
+    align-items: flex-start;
+  }
+
+  .ts-menu__frame,
+  .ts-loader__frame,
+  .ts-settings__panel {
+    min-height: auto;
+  }
+
+  .ts-menu__hero-visual {
+    min-height: 260px;
+  }
+
+  .ts-menu__briefing {
+    grid-template-columns: 1fr;
+  }
+
+  .ts-toolbar,
+  .ts-menu__topbar .ts-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ts-toolbar__contexts {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .ts-language-picker {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .ts-language-picker__panel {
+    position: fixed;
+    top: 88px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: min(62vh, 480px);
+  }
+
+  .ts-game__toolbar {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .ts-game__hud {
+    top: 164px;
+    left: 12px;
+    right: 12px;
+  }
+
+  .ts-console {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    transform: none;
+  }
+
+  .ts-hud__stats--clean {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ts-scoreboard__row,
+  .ts-leaderboard-table__row {
+    grid-template-columns: 36px minmax(0, 1fr) 72px;
+  }
+
+  .ts-scoreboard__row span:nth-child(4),
+  .ts-leaderboard-table__row span:nth-child(4),
+  .ts-scoreboard__row strong:nth-child(4),
+  .ts-leaderboard-table__row strong:nth-child(4) {
+    display: none;
+  }
+
+  .ts-ship-zone {
+    width: min(46vw, 230px);
+    min-width: 160px;
+  }
+
+  .ts-overlay-card,
+  .ts-modal__card {
+    padding: 22px;
+  }
+}
