@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGameContext } from '../../context/GameContext';
 import { readLeaderboard, saveScoreToLeaderboard } from '../../utils/localLeaderboard';
 import {
@@ -145,6 +145,7 @@ export const GameScreen = ({ onExit, playerName }) => {
 
   const arenaRef = useRef(null);
   const inputRef = useRef(null);
+  const readoutRef = useRef(null);
   const frameRef = useRef(0);
   const nextSpawnRef = useRef(0);
   const lastFrameRef = useRef(0);
@@ -154,7 +155,9 @@ export const GameScreen = ({ onExit, playerName }) => {
   const finishGuardRef = useRef(false);
   const hitTimeoutRef = useRef(0);
   const statusTimeoutRef = useRef(0);
+  const caretIdleTimeoutRef = useRef(0);
   const recentClearsRef = useRef([]);
+  const consoleCharRefs = useRef([]);
 
   const arenaSizeRef = useRef({ width: window.innerWidth, height: window.innerHeight });
   const meteorsRef = useRef([]);
@@ -191,6 +194,8 @@ export const GameScreen = ({ onExit, playerName }) => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [shipHitFlash, setShipHitFlash] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Focus the field and start typing to lock the closest meteor.');
+  const [isCaretIdle, setIsCaretIdle] = useState(false);
+  const [caretStyle, setCaretStyle] = useState({ x: 0, y: 0, height: 0, visible: false });
 
   const shipPoint = useMemo(() => getShipPoint(arenaSize), [arenaSize]);
 
@@ -790,6 +795,7 @@ export const GameScreen = ({ onExit, playerName }) => {
       window.cancelAnimationFrame(frameRef.current);
       window.clearTimeout(hitTimeoutRef.current);
       window.clearTimeout(statusTimeoutRef.current);
+      window.clearTimeout(caretIdleTimeoutRef.current);
       audioManager?.pauseSound('ambient');
     },
     [audioManager],
@@ -815,6 +821,85 @@ export const GameScreen = ({ onExit, playerName }) => {
     () => clamp((timeLeft / profile.sessionSeconds) * 100, 0, 100),
     [profile.sessionSeconds, timeLeft],
   );
+  const readoutStateClass = !activeTarget ? 'is-placeholder' : isCaretIdle ? 'is-idle' : 'is-typing';
+  const measureCaret = useCallback(() => {
+    const readoutNode = readoutRef.current;
+    const charNodes = consoleCharRefs.current.filter(Boolean);
+
+    if (!activeTarget || !readoutNode || !charNodes.length) {
+      setCaretStyle((current) => (current.visible ? { x: 0, y: 0, height: 0, visible: false } : current));
+      return;
+    }
+
+    const readoutRect = readoutNode.getBoundingClientRect();
+    const caretIndex = Math.min(activeTypingFeedback.typedLength, charNodes.length);
+    const targetNode = caretIndex < charNodes.length ? charNodes[caretIndex] : charNodes[charNodes.length - 1];
+
+    if (!targetNode) {
+      setCaretStyle((current) => (current.visible ? { x: 0, y: 0, height: 0, visible: false } : current));
+      return;
+    }
+
+    const targetRect = targetNode.getBoundingClientRect();
+    const nextX = caretIndex < charNodes.length ? targetRect.left - readoutRect.left : targetRect.right - readoutRect.left;
+    const nextY = targetRect.top - readoutRect.top;
+    const nextHeight = targetRect.height;
+
+    setCaretStyle((current) => {
+      if (
+        current.visible
+        && Math.abs(current.x - nextX) < 0.5
+        && Math.abs(current.y - nextY) < 0.5
+        && Math.abs(current.height - nextHeight) < 0.5
+      ) {
+        return current;
+      }
+
+      return {
+        x: nextX,
+        y: nextY,
+        height: nextHeight,
+        visible: true,
+      };
+    });
+  }, [activeTarget, activeTypingFeedback.typedLength]);
+
+  useLayoutEffect(() => {
+    measureCaret();
+  }, [measureCaret, arenaSize.width, arenaSize.height, activeTypingFeedback.displaySegments.length]);
+
+  useEffect(() => {
+    if (!activeTarget || typeof document === 'undefined' || !document.fonts?.ready) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) {
+        measureCaret();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTarget, measureCaret]);
+
+  useEffect(() => {
+    window.clearTimeout(caretIdleTimeoutRef.current);
+
+    if (!activeTarget || !isGameActive || isPaused || gameOver) {
+      setIsCaretIdle(false);
+      return undefined;
+    }
+
+    setIsCaretIdle(false);
+    caretIdleTimeoutRef.current = window.setTimeout(() => {
+      setIsCaretIdle(true);
+    }, 360);
+
+    return () => window.clearTimeout(caretIdleTimeoutRef.current);
+  }, [activeTarget, gameOver, isGameActive, isPaused, typed]);
   return (
     <SpaceBackdrop className="ts-game">
       <div ref={arenaRef} className={`ts-game__arena ${shipHitFlash ? 'is-hit' : ''}`} onClick={() => inputRef.current?.focus()}>
@@ -969,11 +1054,17 @@ export const GameScreen = ({ onExit, playerName }) => {
             ))
           )}
         </div>
-        <div className={`ts-console__readout ${activeTarget ? '' : 'is-placeholder'}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
+        <div ref={readoutRef} className={`ts-console__readout ${readoutStateClass}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
           {activeTarget ? (
             <span className="ts-console__word">
-              {activeTypingFeedback.displaySegments.map(({ key, segment, state, isOverflow }) => (
-                <span key={key} className={`ts-console__char ${getTypingStateClassName(state, isOverflow)}`}>
+              {activeTypingFeedback.displaySegments.map(({ key, segment, state, isOverflow }, index) => (
+                <span
+                  key={key}
+                  ref={(node) => {
+                    consoleCharRefs.current[index] = node;
+                  }}
+                  className={`ts-console__char ${getTypingStateClassName(state, isOverflow)}`}
+                >
                   {segment}
                 </span>
               ))}
@@ -981,6 +1072,15 @@ export const GameScreen = ({ onExit, playerName }) => {
           ) : (
             <span className="ts-console__placeholder">start typing to acquire a target</span>
           )}
+          <span
+            aria-hidden="true"
+            className="ts-console__caret"
+            style={{
+              transform: `translate3d(${caretStyle.x}px, ${caretStyle.y}px, 0)`,
+              height: `${caretStyle.height || 0}px`,
+              opacity: caretStyle.visible && activeTarget ? 1 : 0,
+            }}
+          />
         </div>
         <input
           ref={inputRef}

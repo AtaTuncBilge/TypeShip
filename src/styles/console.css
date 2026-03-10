@@ -86,10 +86,15 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
 }
 
 .ts-console__readout.is-placeholder {
   color: inherit;
+}
+
+.ts-console__readout.is-idle .ts-console__caret {
+  animation: ts-typing-caret-blink var(--ts-caret-blink-duration) step-end infinite;
 }
 
 .ts-console__word {
@@ -121,6 +126,21 @@
 
 .ts-console__placeholder {
   color: rgba(255, 255, 255, 0.34);
+}
+
+.ts-console__caret {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--ts-caret-width);
+  border-radius: 999px;
+  background: var(--ts-char-caret);
+  box-shadow: 0 0 12px var(--ts-accent-glow);
+  pointer-events: none;
+  transition:
+    transform var(--ts-caret-duration) var(--ts-caret-ease),
+    height var(--ts-caret-duration) var(--ts-caret-ease),
+    opacity 120ms ease;
 }
 
 .ts-console__ghost-input {
