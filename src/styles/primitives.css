@@ -1,0 +1,109 @@
+.ts-card,
+.ts-overlay-card,
+.ts-modal__card,
+.ts-hud-card,
+.ts-score-card,
+.ts-settings-card,
+.ts-console,
+.ts-empty-state,
+.ts-scoreboard__row,
+.ts-leaderboard-table__row {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--ts-border);
+  background:
+    linear-gradient(135deg, rgba(255, 58, 84, 0.05), rgba(255, 58, 84, 0) 38%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.018));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), var(--ts-shadow-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.ts-card::after,
+.ts-overlay-card::after,
+.ts-modal__card::after,
+.ts-hud-card::after,
+.ts-score-card::after,
+.ts-settings-card::after,
+.ts-console::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+  pointer-events: none;
+}
+
+.ts-card,
+.ts-overlay-card,
+.ts-modal__card {
+  border-radius: 22px;
+}
+
+.ts-hud-card,
+.ts-score-card,
+.ts-settings-card,
+.ts-empty-state,
+.ts-scoreboard__row,
+.ts-leaderboard-table__row,
+.ts-console {
+  border-radius: 18px;
+}
+
+.ts-badge,
+.ts-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.ts-badge {
+  padding: 6px 12px;
+  background: rgba(255, 30, 60, 0.08);
+  border: 1px solid var(--ts-border-strong);
+  color: var(--ts-accent-bright);
+  font-family: var(--ts-font-heading);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.ts-chip {
+  padding: 6px 12px;
+  background: var(--ts-surface);
+  border: 1px solid var(--ts-border);
+  color: var(--ts-text-soft);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.ts-chip--ghost {
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ts-chip--threat {
+  color: var(--ts-text);
+  background: rgba(255, 30, 60, 0.08);
+  border-color: rgba(255, 30, 60, 0.16);
+}
+
+.ts-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ts-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ts-accent), var(--ts-accent-bright));
+  box-shadow: 0 0 16px var(--ts-accent-glow);
+}

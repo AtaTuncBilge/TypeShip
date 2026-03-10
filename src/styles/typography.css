@@ -1,0 +1,100 @@
+.ts-title,
+.ts-heading,
+.ts-brand-title,
+.ts-overlay-title,
+.ts-stat__value {
+  font-family: var(--ts-font-heading);
+}
+
+.ts-brand-title {
+  margin: 0;
+  font-size: clamp(3rem, 8vw, 5.4rem);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+}
+
+.ts-brand-title span {
+  display: block;
+  background: linear-gradient(to bottom, #ffffff 0%, rgba(255, 255, 255, 0.96) 52%, rgba(255, 255, 255, 0.62) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ts-brand-title--single span {
+  display: inline;
+}
+
+.ts-brand-title--white span {
+  background: none;
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.06);
+}
+
+.ts-heading,
+.ts-overlay-title {
+  margin: 12px 0 0;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+}
+
+.ts-heading--compact {
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
+}
+
+.ts-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ts-subtitle,
+.ts-caption,
+.ts-empty-state {
+  color: var(--ts-text-soft);
+}
+
+.ts-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.65;
+  max-width: 48ch;
+}
+
+.ts-subtitle--narrow {
+  max-width: 34ch;
+}
+
+.ts-caption {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.ts-stat__label {
+  display: block;
+  color: var(--ts-text-soft);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ts-stat__value {
+  margin-top: 8px;
+  font-size: 1.28rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.is-danger {
+  color: var(--ts-danger);
+}
+
+.is-accent {
+  color: var(--ts-accent-bright);
+}

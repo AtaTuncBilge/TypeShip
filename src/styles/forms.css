@@ -1,0 +1,82 @@
+.ts-primary-button,
+.ts-secondary-button,
+.ts-ghost-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: transform 200ms ease, background 200ms ease, border-color 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: lowercase;
+}
+
+.ts-primary-button:hover,
+.ts-secondary-button:hover,
+.ts-ghost-button:hover {
+  transform: translateY(-1px);
+}
+
+.ts-primary-button:disabled,
+.ts-secondary-button:disabled,
+.ts-ghost-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ts-primary-button {
+  background: var(--ts-accent);
+  color: #fff;
+  box-shadow: var(--ts-shadow-button);
+}
+
+.ts-primary-button:hover {
+  background: var(--ts-accent-bright);
+  box-shadow: var(--ts-shadow-button-hover);
+}
+
+.ts-secondary-button,
+.ts-ghost-button {
+  background: var(--ts-surface);
+  color: var(--ts-text);
+  border: 1px solid var(--ts-border);
+}
+
+.ts-secondary-button:hover,
+.ts-ghost-button:hover {
+  background: var(--ts-surface-hover);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.ts-input,
+.ts-console__input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ts-text);
+  outline: none;
+  transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+
+.ts-input {
+  padding: 14px 16px;
+}
+
+.ts-input:focus,
+.ts-console__input:focus {
+  border-color: var(--ts-border-strong);
+  box-shadow: 0 0 0 3px rgba(255, 30, 60, 0.12), 0 0 24px rgba(255, 30, 60, 0.08);
+}
+
+.ts-input::placeholder,
+.ts-console__input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
