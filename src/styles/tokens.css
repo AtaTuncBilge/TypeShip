@@ -37,5 +37,5 @@
   --ts-caret-blink-duration: 1s;
   --ts-typing-idle-delay: 360ms;
   --ts-typing-shake-distance: 2px;
-  --ts-typing-shake-duration: 120ms;
+  --ts-typing-shake-duration: 160ms;
 }

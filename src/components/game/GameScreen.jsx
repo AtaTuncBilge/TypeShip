@@ -23,6 +23,23 @@ const calculateWpm = (correctChars, elapsedMs) => {
   return Math.max(0, Math.round(words / elapsedMinutes));
 };
 const calculateAccuracy = (keystrokes, correctChars) => (keystrokes > 0 ? Math.round((correctChars / keystrokes) * 100) : 100);
+const parseDurationToMs = (value, fallback = 0) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return fallback;
+
+  if (trimmed.endsWith('ms')) {
+    const parsedMs = Number.parseFloat(trimmed);
+    return Number.isFinite(parsedMs) ? parsedMs : fallback;
+  }
+
+  if (trimmed.endsWith('s')) {
+    const parsedSeconds = Number.parseFloat(trimmed);
+    return Number.isFinite(parsedSeconds) ? parsedSeconds * 1000 : fallback;
+  }
+
+  const parsed = Number.parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 const getShipPoint = (arenaSize) => ({
   x: arenaSize.width < 680 ? 108 : 146,
   y: arenaSize.height * 0.54,
@@ -146,6 +163,7 @@ export const GameScreen = ({ onExit, playerName }) => {
   const arenaRef = useRef(null);
   const inputRef = useRef(null);
   const readoutRef = useRef(null);
+  const caretRef = useRef(null);
   const frameRef = useRef(0);
   const nextSpawnRef = useRef(0);
   const lastFrameRef = useRef(0);
@@ -156,8 +174,10 @@ export const GameScreen = ({ onExit, playerName }) => {
   const hitTimeoutRef = useRef(0);
   const statusTimeoutRef = useRef(0);
   const caretIdleTimeoutRef = useRef(0);
+  const caretAnimationRef = useRef(null);
   const recentClearsRef = useRef([]);
   const consoleCharRefs = useRef([]);
+  const previousCaretStyleRef = useRef({ x: 0, y: 0, height: 0, visible: false });
 
   const arenaSizeRef = useRef({ width: window.innerWidth, height: window.innerHeight });
   const meteorsRef = useRef([]);
@@ -196,6 +216,7 @@ export const GameScreen = ({ onExit, playerName }) => {
   const [statusMessage, setStatusMessage] = useState('Focus the field and start typing to lock the closest meteor.');
   const [isCaretIdle, setIsCaretIdle] = useState(false);
   const [caretStyle, setCaretStyle] = useState({ x: 0, y: 0, height: 0, visible: false });
+  const [typingShakeTick, setTypingShakeTick] = useState(0);
 
   const shipPoint = useMemo(() => getShipPoint(arenaSize), [arenaSize]);
 
@@ -246,6 +267,10 @@ export const GameScreen = ({ onExit, playerName }) => {
     statusTimeoutRef.current = window.setTimeout(() => {
       setStatusMessage('Tab clears the current lock. Esc pauses the run.');
     }, 1800);
+  }, []);
+
+  const triggerTypingShake = useCallback(() => {
+    setTypingShakeTick((current) => current + 1);
   }, []);
 
   const pulseShipHit = useCallback(() => {
@@ -661,6 +686,7 @@ export const GameScreen = ({ onExit, playerName }) => {
 
       if (!lockedTarget) {
         setInputError(true);
+        triggerTypingShake();
         audioManager?.playSound('error');
         showStatus('No visible meteor matches that opening letter.');
         syncStats(performance.now());
@@ -688,13 +714,14 @@ export const GameScreen = ({ onExit, playerName }) => {
         }
       } else {
         setInputError(true);
+        triggerTypingShake();
         audioManager?.playSound('error');
         showStatus('Trajectory mismatch. Backspace or clear target.');
       }
 
       syncStats(performance.now());
     },
-    [activeLanguage.locale, audioManager, destroyMeteor, gameOver, isGameActive, isPaused, pushLaser, showStatus, syncStats],
+    [activeLanguage.locale, audioManager, destroyMeteor, gameOver, isGameActive, isPaused, pushLaser, showStatus, syncStats, triggerTypingShake],
   );
 
   const handleInputChange = useCallback(
@@ -796,6 +823,7 @@ export const GameScreen = ({ onExit, playerName }) => {
       window.clearTimeout(hitTimeoutRef.current);
       window.clearTimeout(statusTimeoutRef.current);
       window.clearTimeout(caretIdleTimeoutRef.current);
+      caretAnimationRef.current?.cancel();
       audioManager?.pauseSound('ambient');
     },
     [audioManager],
@@ -822,11 +850,16 @@ export const GameScreen = ({ onExit, playerName }) => {
     [profile.sessionSeconds, timeLeft],
   );
   const readoutStateClass = !activeTarget ? 'is-placeholder' : isCaretIdle ? 'is-idle' : 'is-typing';
+  const typingShakeClassName = typingShakeTick
+    ? typingShakeTick % 2 === 0
+      ? ' is-shaking-even'
+      : ' is-shaking-odd'
+    : '';
   const measureCaret = useCallback(() => {
     const readoutNode = readoutRef.current;
     const charNodes = consoleCharRefs.current.filter(Boolean);
 
-    if (!activeTarget || !readoutNode || !charNodes.length) {
+    if (!activeTargetId || !readoutNode || !charNodes.length) {
       setCaretStyle((current) => (current.visible ? { x: 0, y: 0, height: 0, visible: false } : current));
       return;
     }
@@ -862,14 +895,19 @@ export const GameScreen = ({ onExit, playerName }) => {
         visible: true,
       };
     });
-  }, [activeTarget, activeTypingFeedback.typedLength]);
+  }, [activeTargetId, activeTypingFeedback.typedLength]);
 
   useLayoutEffect(() => {
     measureCaret();
+    const frame = window.requestAnimationFrame(() => {
+      measureCaret();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [measureCaret, arenaSize.width, arenaSize.height, activeTypingFeedback.displaySegments.length]);
 
   useEffect(() => {
-    if (!activeTarget || typeof document === 'undefined' || !document.fonts?.ready) {
+    if (!activeTargetId || typeof document === 'undefined' || !document.fonts?.ready) {
       return undefined;
     }
 
@@ -883,12 +921,52 @@ export const GameScreen = ({ onExit, playerName }) => {
     return () => {
       cancelled = true;
     };
-  }, [activeTarget, measureCaret]);
+  }, [activeTargetId, measureCaret]);
+
+  useLayoutEffect(() => {
+    const node = caretRef.current;
+    const previousCaretStyle = previousCaretStyleRef.current;
+
+    previousCaretStyleRef.current = caretStyle;
+    caretAnimationRef.current?.cancel();
+    caretAnimationRef.current = null;
+
+    if (!node || !activeTargetId || !caretStyle.visible || !previousCaretStyle.visible) {
+      return;
+    }
+
+    const deltaX = previousCaretStyle.x - caretStyle.x;
+    const deltaY = previousCaretStyle.y - caretStyle.y;
+
+    if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) {
+      return;
+    }
+
+    const variableSource = readoutRef.current || document.documentElement;
+    const styles = window.getComputedStyle(variableSource);
+    const duration = parseDurationToMs(styles.getPropertyValue('--ts-caret-duration'), 125);
+    const easing = styles.getPropertyValue('--ts-caret-ease').trim() || 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+    if (typeof node.animate !== 'function') {
+      return;
+    }
+
+    caretAnimationRef.current = node.animate(
+      [
+        { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)` },
+        { transform: 'translate3d(0, 0, 0)' },
+      ],
+      {
+        duration,
+        easing,
+      },
+    );
+  }, [activeTargetId, caretStyle]);
 
   useEffect(() => {
     window.clearTimeout(caretIdleTimeoutRef.current);
 
-    if (!activeTarget || !isGameActive || isPaused || gameOver) {
+    if (!activeTargetId || !isGameActive || isPaused || gameOver) {
       setIsCaretIdle(false);
       return undefined;
     }
@@ -899,7 +977,7 @@ export const GameScreen = ({ onExit, playerName }) => {
     }, 360);
 
     return () => window.clearTimeout(caretIdleTimeoutRef.current);
-  }, [activeTarget, gameOver, isGameActive, isPaused, typed]);
+  }, [activeTargetId, gameOver, isGameActive, isPaused, typed]);
   return (
     <SpaceBackdrop className="ts-game">
       <div ref={arenaRef} className={`ts-game__arena ${shipHitFlash ? 'is-hit' : ''}`} onClick={() => inputRef.current?.focus()}>
@@ -949,7 +1027,7 @@ export const GameScreen = ({ onExit, playerName }) => {
               </div>
               {isActive ? <div className="ts-target-reticle" /> : null}
               <div className={`ts-meteor__label ${isActive ? 'is-active' : ''}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
-                <span className="ts-meteor__word">
+                <span className={`ts-meteor__word${isActive ? typingShakeClassName : ''}`}>
                   {meteorDisplaySegments.map(({ key, segment, state, isOverflow }) => (
                     <span key={`${meteor.id}-${key}`} className={`ts-meteor__char ${getTypingStateClassName(state, isOverflow)}`}>
                       {segment}
@@ -1054,9 +1132,13 @@ export const GameScreen = ({ onExit, playerName }) => {
             ))
           )}
         </div>
-        <div ref={readoutRef} className={`ts-console__readout ${readoutStateClass}`} dir={activeLanguage.rtl ? 'rtl' : 'ltr'}>
+        <div
+          ref={readoutRef}
+          className={`ts-console__readout ${readoutStateClass}${!activeTarget ? typingShakeClassName : ''}`}
+          dir={activeLanguage.rtl ? 'rtl' : 'ltr'}
+        >
           {activeTarget ? (
-            <span className="ts-console__word">
+            <span className={`ts-console__word${typingShakeClassName}`}>
               {activeTypingFeedback.displaySegments.map(({ key, segment, state, isOverflow }, index) => (
                 <span
                   key={key}
@@ -1072,11 +1154,13 @@ export const GameScreen = ({ onExit, playerName }) => {
           ) : (
             <span className="ts-console__placeholder">start typing to acquire a target</span>
           )}
-          <span
+          <div
+            ref={caretRef}
             aria-hidden="true"
             className="ts-console__caret"
             style={{
-              transform: `translate3d(${caretStyle.x}px, ${caretStyle.y}px, 0)`,
+              left: `${caretStyle.x}px`,
+              top: `${caretStyle.y}px`,
               height: `${caretStyle.height || 0}px`,
               opacity: caretStyle.visible && activeTarget ? 1 : 0,
             }}

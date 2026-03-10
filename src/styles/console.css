@@ -97,6 +97,16 @@
   animation: ts-typing-caret-blink var(--ts-caret-blink-duration) step-end infinite;
 }
 
+.ts-console__readout.is-shaking-odd,
+.ts-console__word.is-shaking-odd {
+  animation: ts-typing-shake-a var(--ts-typing-shake-duration) linear;
+}
+
+.ts-console__readout.is-shaking-even,
+.ts-console__word.is-shaking-even {
+  animation: ts-typing-shake-b var(--ts-typing-shake-duration) linear;
+}
+
 .ts-console__word {
   display: block;
   width: 100%;
@@ -129,6 +139,7 @@
 }
 
 .ts-console__caret {
+  display: block;
   position: absolute;
   left: 0;
   top: 0;
@@ -137,10 +148,7 @@
   background: var(--ts-char-caret);
   box-shadow: 0 0 12px var(--ts-accent-glow);
   pointer-events: none;
-  transition:
-    transform var(--ts-caret-duration) var(--ts-caret-ease),
-    height var(--ts-caret-duration) var(--ts-caret-ease),
-    opacity 120ms ease;
+  will-change: left, top, height, opacity, transform;
 }
 
 .ts-console__ghost-input {

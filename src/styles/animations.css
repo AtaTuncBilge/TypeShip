@@ -62,7 +62,17 @@
   100% { opacity: 1; }
 }
 
-@keyframes ts-typing-shake {
+@keyframes ts-typing-shake-a {
+  0%,
+  100% { transform: translate3d(0, 0, 0); }
+  16% { transform: translate3d(calc(var(--ts-typing-shake-distance) * -1), 0, 0); }
+  33% { transform: translate3d(var(--ts-typing-shake-distance), 0, 0); }
+  50% { transform: translate3d(calc(var(--ts-typing-shake-distance) * -1), 0, 0); }
+  66% { transform: translate3d(var(--ts-typing-shake-distance), 0, 0); }
+  83% { transform: translate3d(calc(var(--ts-typing-shake-distance) * -1), 0, 0); }
+}
+
+@keyframes ts-typing-shake-b {
   0%,
   100% { transform: translate3d(0, 0, 0); }
   16% { transform: translate3d(calc(var(--ts-typing-shake-distance) * -1), 0, 0); }
