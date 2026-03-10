@@ -1,0 +1,154 @@
+.ts-game {
+  overflow: hidden;
+}
+
+.ts-game__toolbar {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 7;
+  display: flex;
+  justify-content: flex-end;
+  width: min(760px, calc(100vw - 48px));
+}
+
+.ts-game__arena {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ts-game__arena::before,
+.ts-game__arena::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.ts-game__arena::before {
+  left: -8%;
+  top: 16%;
+  width: 42%;
+  height: 54%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 30, 60, 0.14) 0%, rgba(255, 30, 60, 0.05) 36%, transparent 72%);
+  filter: blur(34px);
+  opacity: 0.85;
+}
+
+.ts-game__arena::after {
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 16%, transparent 84%, rgba(255, 255, 255, 0.02)),
+    radial-gradient(circle at 76% 32%, rgba(255, 58, 84, 0.08) 0%, transparent 22%);
+  opacity: 0.9;
+}
+
+.ts-game__arena.is-hit {
+  animation: ts-hit-shake 420ms ease;
+}
+
+.ts-game__hud {
+  position: absolute;
+  top: 92px;
+  left: 24px;
+  right: 24px;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.7fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.ts-hud-card {
+  padding: 14px 16px;
+}
+
+.ts-hud-card--brand {
+  max-width: 360px;
+}
+
+.ts-hud-card__subline {
+  margin-top: 10px;
+  color: var(--ts-text-soft);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ts-hud__stats--clean {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ts-hull-meter,
+.ts-time-meter,
+.ts-meteor__progress {
+  margin-top: 12px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ts-hull-meter > span,
+.ts-time-meter > span,
+.ts-meteor__progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.ts-hull-meter > span,
+.ts-time-meter > span,
+.ts-meteor__progress > span {
+  background: linear-gradient(90deg, var(--ts-accent), var(--ts-accent-bright));
+}
+
+.ts-hull-meter.is-critical > span,
+.ts-time-meter.is-critical > span {
+  background: linear-gradient(90deg, #ff5c73, var(--ts-warm));
+}
+
+.ts-ship-zone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: min(26vw, 320px);
+  min-width: 190px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 24px 48px rgba(255, 30, 60, 0.14));
+  pointer-events: none;
+}
+
+.ts-ship-zone.is-hit {
+  animation: ts-hit-flash 360ms ease;
+}
+
+.ts-ship-zone::after {
+  content: '';
+  position: absolute;
+  left: 48%;
+  bottom: -4px;
+  width: 70%;
+  height: 24px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(255, 30, 60, 0.24) 0%, rgba(255, 30, 60, 0) 74%);
+}
+
+.ts-ship-art,
+.ts-meteor-art {
+  width: 100%;
+  height: auto;
+}
+
+.ts-thruster-flame {
+  transform-origin: center;
+  animation: ts-thruster 0.22s ease-in-out infinite alternate;
+}
+
+.ts-thruster-flame--alt {
+  animation-duration: 0.18s;
+}
