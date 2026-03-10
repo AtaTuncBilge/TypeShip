@@ -27,8 +27,15 @@
   --ts-font-body: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ts-font-heading: 'Sora', 'Outfit', sans-serif;
   --ts-font-mono: 'Roboto Mono', 'Consolas', 'Menlo', monospace;
-  --ts-char-untyped: var(--ts-text);
-  --ts-char-correct: var(--ts-success);
+  --ts-char-untyped: rgba(237, 237, 239, 0.46);
+  --ts-char-correct: #f6e6ea;
   --ts-char-incorrect: var(--ts-danger);
   --ts-char-caret: var(--ts-accent-bright);
+  --ts-caret-width: 2px;
+  --ts-caret-duration: 125ms;
+  --ts-caret-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ts-caret-blink-duration: 1s;
+  --ts-typing-idle-delay: 360ms;
+  --ts-typing-shake-distance: 2px;
+  --ts-typing-shake-duration: 120ms;
 }
