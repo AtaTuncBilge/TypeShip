@@ -18,7 +18,7 @@ How to Run
 
 1. Download or clone the repo:
 
-git clone https://github.com/AtaTuncBilge/typeship.git
+git clone https://github.com/redpersongpt/typeship.git
 cd typeship
 
 2. Install everything you need:

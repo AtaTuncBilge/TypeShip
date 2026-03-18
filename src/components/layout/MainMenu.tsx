@@ -27,7 +27,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onPlay, onSettings }) => {
         setShowAbout(true);
         break;
       case 'github':
-        window.open('https://github.com/AtaTuncBilge/TypeShip', '_blank', 'noopener,noreferrer');
+        window.open('https://github.com/redpersongpt/TypeShip', '_blank', 'noopener,noreferrer');
         break;
       case 'more': // Changed from moreOptions
         setShowMore(!showMore);

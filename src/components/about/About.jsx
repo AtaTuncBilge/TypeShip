@@ -61,7 +61,7 @@ const About = ({ onClose }) => {
           Created by Ata Tunç Bilge
         </p>
         <a 
-          href="https://github.com/AtaTuncBilge"
+          href="https://github.com/redpersongpt"
           target="_blank"
           rel="noopener noreferrer"
           style={{
